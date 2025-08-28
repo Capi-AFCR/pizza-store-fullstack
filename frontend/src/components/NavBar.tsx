@@ -25,73 +25,108 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
     navigate('/login');
   };
 
+  // Determine redirect path based on role
+  const getHomePath = () => {
+    switch (role) {
+      case 'ROLE_A':
+        return '/admin';
+      case 'ROLE_K':
+        return '/kitchen';
+      case 'ROLE_D':
+        return '/delivery';
+      case 'ROLE_W':
+        return '/waiter';
+      case 'ROLE_C':
+      default:
+        return '/';
+    }
+  };
+
   return (
-    <nav className="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md">
-      <div className="text-xl font-bold">
-        <Link to="/">Pizza Store</Link>
-      </div>
-      <div className="space-x-4">
-        {token && (role === 'ROLE_A' || role === 'ROLE_C' || role === 'ROLE_K' || role === 'ROLE_D' || role === 'ROLE_W') && (
-          <Link
-            to={
-              role === 'ROLE_A' ? '/admin' :
-              role === 'ROLE_K' ? '/kitchen' :
-              role === 'ROLE_D' ? '/delivery' :
-              role === 'ROLE_W' ? '/waiter' : '/'
-            }
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-          >
-            Dashboard
-          </Link>
-        )}
-        {token && (role === 'ROLE_C') && (
-          <Link
-            to="/orders"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-          >
-            Orders
-          </Link>
-        )}
-        {token && role === 'ROLE_A' && (
-          <Link
-            to="/admin/users"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-          >
-            Users
-          </Link>
-        )}
-        {token && role === 'ROLE_A' && (
-          <Link
-            to="/admin/orders"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-          >
-            Manage Orders
-          </Link>
-        )}
-        {token && (
-          <button
-            onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors duration-200"
-          >
-            Logout
-          </button>
-        )}
-        {!token && (
-          <>
-            <Link
-              to="/login"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-            >
-              Login
-            </Link>
-            <Link
-              to="/register"
-              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
-            >
-              Register
-            </Link>
-          </>
-        )}
+    <nav className="bg-blue-600 text-white p-4 shadow-md">
+      <div className="container mx-auto flex justify-between items-center">
+        <Link to={getHomePath()} className="text-2xl font-bold">Pizza Store</Link>
+        <div className="flex space-x-4">
+          {token ? (
+            <>
+              {role === 'ROLE_A' && (
+                <>
+                  <Link
+                    to="/admin/users"
+                    className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Manage Users
+                  </Link>
+                  <Link
+                    to="/admin/products"
+                    className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Manage Products
+                  </Link>
+                  <Link
+                    to="/admin/orders"
+                    className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Manage Orders
+                  </Link>
+                </>
+              )}
+              {role === 'ROLE_K' && (
+                <Link
+                  to="/kitchen"
+                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Kitchen
+                </Link>
+              )}
+              {role === 'ROLE_D' && (
+                <Link
+                  to="/delivery"
+                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Delivery
+                </Link>
+              )}
+              {role === 'ROLE_W' && (
+                <Link
+                  to="/waiter"
+                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Waiter
+                </Link>
+              )}
+              {(role === 'ROLE_C') && (
+                <Link
+                  to="/orders"
+                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Orders
+                </Link>
+              )}
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                to="/login"
+                className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+              >
+                Register
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </nav>
   );

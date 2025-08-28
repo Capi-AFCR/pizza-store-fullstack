@@ -20,17 +20,17 @@ export interface AuthResponse {
 }
 
 export interface Product {
-  id: number;
+  id?: number;
   name: string;
   description: string;
   price: number;
-  category: 'AP' | 'MC' | 'SD' | 'DR' | 'DE';
-  available: boolean;
+  category: 'AP' | 'MC' | 'SD' | 'DR' | 'DE' | '';
+  isActive: boolean;
   imageUrl?: string;
-  createdBy: string;
-  modifiedBy: string;
-  createdAt: string;
-  modifiedAt: string;
+  createdBy?: string;
+  modifiedBy?: string;
+  createdAt?: string;
+  modifiedAt?: string;
 }
 
 export interface CartItem extends Product {

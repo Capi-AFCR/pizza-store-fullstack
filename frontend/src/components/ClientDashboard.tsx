@@ -93,7 +93,7 @@ const ClientDashboard: React.FC = () => {
       }
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const orderItems = cart.map((item: CartItem) => ({
-        productId: item.id,
+        productId: item.id!,
         quantity: item.quantity,
         price: item.price
       }));
@@ -110,7 +110,7 @@ const ClientDashboard: React.FC = () => {
         if (newToken) {
           const config = { headers: { Authorization: `Bearer ${newToken}` } };
           const orderItems = cart.map((item: CartItem) => ({
-            productId: item.id,
+            productId: item.id!,
             quantity: item.quantity,
             price: item.price
           }));
@@ -127,12 +127,12 @@ const ClientDashboard: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    console.log('Cart state:', cart);
-    fetchProducts();
-  }, [navigate, role, token]);
-
   const handleAddToCart = (product: Product) => {
+    if (!product.id) {
+      console.error('Cannot add product to cart: missing id', product);
+      setError('Cannot add product to cart: missing id');
+      return;
+    }
     console.log('Adding to cart:', product);
     addToCart(product);
   };
@@ -200,7 +200,7 @@ const ClientDashboard: React.FC = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {products.length === 0 && !error && <p className="text-gray-600">No products found. Please log in.</p>}
             {filteredProducts.map(product => (
-              <div key={product.id} className="border rounded-lg shadow-md p-6 bg-white hover:shadow-lg transition-shadow duration-200">
+              <div key={product.id || Math.random()} className="border rounded-lg shadow-md p-6 bg-white hover:shadow-lg transition-shadow duration-200">
                 <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover rounded mb-4" />
                 <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
                 <p className="text-gray-600">{product.description}</p>

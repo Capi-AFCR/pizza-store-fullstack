@@ -7,53 +7,53 @@ interface CartProps {
   disabled?: boolean;
 }
 
-const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false }) => {
+const Cart: React.FC<CartProps> = ({ onCheckout, disabled }) => {
   const cartContext = useContext(CartContext);
-
   if (!cartContext) {
     throw new Error('Cart must be used within a CartProvider');
   }
   const { cart, removeFromCart, clearCart } = cartContext as CartContextType;
 
+  const totalPrice = cart.reduce((total, item) => total + item.price * item.quantity, 0);
+
   return (
-    <div className="mt-8 bg-white p-6 rounded-lg shadow-md">
+    <div className="bg-white p-6 rounded-lg shadow-md">
       <h3 className="text-xl font-bold mb-4 text-gray-800">Cart</h3>
-      {cart.length === 0 ? (
-        <p className="text-gray-600">Your cart is empty.</p>
-      ) : (
-        <>
-          <ul className="space-y-4">
-            {cart.map((item: CartItem) => (
-              <li key={item.id} className="flex justify-between items-center">
-                <div>
-                  <p className="text-gray-700">{item.name} (x{item.quantity})</p>
-                  <p className="text-gray-600">${(item.price * item.quantity).toFixed(2)}</p>
-                </div>
-                <button
-                  onClick={() => removeFromCart(item.id)}
-                  className="bg-red-600 text-white p-2 rounded hover:bg-red-700 transition-colors duration-200"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div className="flex justify-between mt-4">
+      {cart.length === 0 && <p className="text-gray-600">Your cart is empty.</p>}
+      <div className="grid gap-4">
+        {cart.map(item => (
+          <div key={item.id || Math.random()} className="flex justify-between items-center border-b py-2">
+            <div>
+              <p className="text-gray-700 font-semibold">{item.name}</p>
+              <p className="text-gray-600">${item.price.toFixed(2)} x {item.quantity}</p>
+            </div>
             <button
-              onClick={clearCart}
-              className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600 transition-colors duration-200"
+              onClick={() => item.id && removeFromCart(item.id)}
+              className="bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
+              disabled={!item.id}
             >
-              Clear Cart
-            </button>
-            <button
-              onClick={onCheckout}
-              className="bg-green-600 text-white p-2 rounded hover:bg-green-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
-              disabled={disabled}
-            >
-              Checkout
+              Remove
             </button>
           </div>
-        </>
+        ))}
+      </div>
+      {cart.length > 0 && (
+        <div className="mt-4">
+          <p className="text-gray-700 font-semibold">Total: ${totalPrice.toFixed(2)}</p>
+          <button
+            onClick={clearCart}
+            className="bg-gray-500 text-white p-2 rounded w-full mt-2 hover:bg-gray-600 transition-colors duration-200"
+          >
+            Clear Cart
+          </button>
+          <button
+            onClick={onCheckout}
+            disabled={disabled || cart.length === 0}
+            className="bg-blue-600 text-white p-2 rounded w-full mt-2 hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400"
+          >
+            Checkout
+          </button>
+        </div>
       )}
     </div>
   );

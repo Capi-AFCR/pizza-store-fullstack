@@ -1,80 +1,76 @@
 import React, { useState, Dispatch, SetStateAction } from 'react';
-import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import axios, { AxiosResponse } from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { User } from '../types';
 
 interface RegisterFormProps {
   setError: Dispatch<SetStateAction<string>>;
 }
 
 const RegisterForm: React.FC<RegisterFormProps> = ({ setError }) => {
-  const [error, setLocalError] = useState<string>('');
-  const [user, setUser] = useState({
+  const [formData, setFormData] = useState<User>({
     name: '',
     email: '',
     password: '',
     role: 'C',
+    active: true,
+    createdBy: 'system',
+    modifiedBy: 'system'
   });
   const navigate = useNavigate();
 
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      console.log('Attempting registration with:', user);
-      await axios.post('/api/auth/register', user);
+      const response: AxiosResponse<User> = await axios.post('/api/auth/register', formData);
       setError('');
-      setLocalError('');
-      console.log('Registration successful');
       navigate('/login');
     } catch (err: any) {
-      const errorMessage = 'Registration failed: ' + (err.response?.data || err.message);
-      console.error(errorMessage);
-      setError(errorMessage);
-      setLocalError(errorMessage);
+      setError(err.response?.data || 'Registration failed');
     }
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-md">
-      <h2 className="text-2xl font-bold mb-4">Register</h2>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      <form onSubmit={handleRegister} className="space-y-4">
-        <div>
-          <label className="block">Name</label>
+    <div className="container mx-auto p-6 max-w-md">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Register</h2>
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Name</label>
           <input
             type="text"
-            value={user.name}
-            onChange={(e) => setUser({ ...user, name: e.target.value })}
-            className="border p-2 w-full rounded"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
-        <div>
-          <label className="block">Email</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Email</label>
           <input
             type="email"
-            value={user.email}
-            onChange={(e) => setUser({ ...user, email: e.target.value })}
-            className="border p-2 w-full rounded"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
-        <div>
-          <label className="block">Password</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Password</label>
           <input
             type="password"
-            value={user.password}
-            onChange={(e) => setUser({ ...user, password: e.target.value })}
-            className="border p-2 w-full rounded"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
-        <button type="submit" className="bg-green-500 text-white p-2 rounded w-full">
+        <button
+          type="submit"
+          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
+        >
           Register
         </button>
       </form>
-      <div className="mt-4 text-center">
-        <p>Already have an account? <Link to="/login" className="text-blue-500">Login</Link></p>
-      </div>
     </div>
   );
 };

@@ -37,9 +37,8 @@ public class Product {
     @Enumerated(EnumType.STRING)
     private ProductCategory category;
 
-    @Column(nullable = false)
-    @NotNull(message = "Available status cannot be null")
-    private Boolean available;
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
 
     @Column
     private String imageUrl;
@@ -64,12 +63,12 @@ public class Product {
     public Product() {
     }
 
-    public Product(String name, String description, Double price, ProductCategory category, Boolean available, String imageUrl) {
+    public Product(String name, String description, Double price, ProductCategory category, Boolean isActive, String imageUrl) {
         this.name = name;
         this.description = description;
         this.price = price;
         this.category = category;
-        this.available = available;
+        this.isActive = isActive;
         this.imageUrl = imageUrl;
     }
 
@@ -114,12 +113,12 @@ public class Product {
         this.category = category;
     }
 
-    public Boolean getAvailable() {
-        return available;
+    public Boolean getIsActive() {
+        return isActive;
     }
 
-    public void setAvailable(Boolean available) {
-        this.available = available;
+    public void setIsActive(Boolean isActive) {
+        this.isActive = isActive;
     }
 
     public String getImageUrl() {
