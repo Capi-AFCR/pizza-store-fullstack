@@ -10,6 +10,9 @@ import UserList from './components/UserList';
 import UserDetails from './components/UserDetails';
 import Home from './components/Home';
 import NavBar from './components/NavBar';
+import OrderForm from './components/OrderForm';
+import OrderHistory from './components/OrderHistory';
+import AdminOrders from './components/AdminOrders';
 import { User } from './types';
 import './index.css';
 
@@ -50,11 +53,13 @@ const App: React.FC = () => {
       });
       setToken(response.data.accessToken);
       setRefreshToken(response.data.refreshToken);
-      setRole(response.data.role);
+      setRole(response.data.role); // Expecting 'ROLE_A', 'ROLE_C', etc.
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('role', response.data.role);
-      fetchUsers();
+      if (response.data.role === 'ROLE_A') {
+        fetchUsers();
+      }
     } catch (err: any) {
       setError('Failed to refresh token: ' + (err.response?.data || err.message));
       setToken('');
@@ -76,7 +81,11 @@ const App: React.FC = () => {
       fetchUsers();
       setError('');
     } catch (err: any) {
-      setError('Failed to update user: ' + (err.response?.data || err.message));
+      if (err.response?.status === 401 && refreshToken && email) {
+        await refreshAccessToken();
+      } else {
+        setError('Failed to update user: ' + (err.response?.data || err.message));
+      }
     }
   };
 
@@ -87,13 +96,17 @@ const App: React.FC = () => {
       fetchUsers();
       setError('');
     } catch (err: any) {
-      setError('Failed to delete user: ' + (err.response?.data || err.message));
+      if (err.response?.status === 401 && refreshToken && email) {
+        await refreshAccessToken();
+      } else {
+        setError('Failed to delete user: ' + (err.response?.data || err.message));
+      }
     }
   };
 
   useEffect(() => {
     console.log('Token:', token);
-    if (token && role === 'A') {
+    if (token && role === 'ROLE_A') {
       fetchUsers();
     }
   }, [token, role]);
@@ -102,6 +115,7 @@ const App: React.FC = () => {
     <Router>
       <NavBar
         token={token}
+        role={role}
         setToken={setToken}
         setRefreshToken={setRefreshToken}
         setEmail={setEmail}
@@ -115,7 +129,7 @@ const App: React.FC = () => {
         <Route
           path="/admin/users"
           element={
-            token && role === 'A' ? (
+            token && role === 'ROLE_A' ? (
               <div className="container mx-auto p-4 space-y-6">
                 <h1 className="text-2xl font-bold">User Management</h1>
                 {viewingUser ? (
@@ -127,6 +141,36 @@ const App: React.FC = () => {
                   </>
                 )}
               </div>
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/admin/orders"
+          element={
+            token && role === 'ROLE_A' ? (
+              <AdminOrders />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            token ? (
+              <OrderHistory />
+            ) : (
+              <Navigate to="/login" />
+            )
+          }
+        />
+        <Route
+          path="/orders/new"
+          element={
+            token ? (
+              <OrderForm />
             ) : (
               <Navigate to="/login" />
             )

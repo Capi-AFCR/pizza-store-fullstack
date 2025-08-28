@@ -3,13 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 
 interface NavBarProps {
   token: string;
+  role: string;
   setToken: Dispatch<SetStateAction<string>>;
   setRefreshToken: Dispatch<SetStateAction<string>>;
   setEmail: Dispatch<SetStateAction<string>>;
   setRole: Dispatch<SetStateAction<string>>;
 }
 
-const NavBar: React.FC<NavBarProps> = ({ token, setToken, setRefreshToken, setEmail, setRole }) => {
+const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken, setEmail, setRole }) => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -30,6 +31,30 @@ const NavBar: React.FC<NavBarProps> = ({ token, setToken, setRefreshToken, setEm
         <Link to="/">Pizza Store</Link>
       </div>
       <div className="space-x-4">
+        {token && (
+          <Link
+            to="/orders"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Orders
+          </Link>
+        )}
+        {token && role === 'ROLE_A' && (
+          <Link
+            to="/admin/users"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Users
+          </Link>
+        )}
+        {token && role === 'ROLE_A' && (
+          <Link
+            to="/admin/orders"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+          >
+            Manage Orders
+          </Link>
+        )}
         {token && (
           <button
             onClick={handleLogout}

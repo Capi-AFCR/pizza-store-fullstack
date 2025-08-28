@@ -22,7 +22,7 @@ public class UserService {
 
     public User createUser(User user, boolean isAdmin) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        user.setRole(isAdmin ? user.getRole() : Role.C); // Default to Client for non-admins
+        user.setRole(isAdmin ? user.getRole() : Role.C);
         String currentUser = SecurityContextHolder.getContext().getAuthentication() != null
                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                 : "system";
@@ -59,6 +59,11 @@ public class UserService {
     public User getUserById(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
+    }
+
+    public User getUserById(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found with email: " + email));
     }
 
     public String generateResetToken(String email) {

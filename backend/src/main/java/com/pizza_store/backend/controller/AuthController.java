@@ -72,14 +72,14 @@ public class AuthController {
             String accessToken = jwtUtil.generateToken(userDetails.getUsername());
             String refreshToken = jwtUtil.generateRefreshToken();
 
-            // Save refresh token and get role
+            // Save refresh token
             User user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
             user.setRefreshToken(refreshToken);
             userRepository.save(user);
 
             LOGGER.info("Login successful for user: " + loginRequest.getUsername());
-            return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken, user.getRole().toString()));
+            return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken, "ROLE_" + user.getRole()));
         } catch (AuthenticationException e) {
             LOGGER.severe("Login failed for user: " + loginRequest.getUsername() + ", error: " + e.getMessage());
             return ResponseEntity.status(401).body("Invalid credentials");
@@ -98,7 +98,7 @@ public class AuthController {
                 user.setRefreshToken(newRefreshToken);
                 userRepository.save(user);
                 LOGGER.info("Token refresh successful for user: " + refreshRequest.getEmail());
-                return ResponseEntity.ok(new AuthResponse(accessToken, newRefreshToken, user.getRole().toString()));
+                return ResponseEntity.ok(new AuthResponse(accessToken, newRefreshToken, "ROLE_" + user.getRole()));
             } else {
                 LOGGER.warning("Invalid refresh token for user: " + refreshRequest.getEmail());
                 return ResponseEntity.status(401).body("Invalid refresh token");
@@ -114,7 +114,6 @@ public class AuthController {
         try {
             LOGGER.info("Processing forgot password for email: " + request.getEmail());
             String resetToken = userService.generateResetToken(request.getEmail());
-            // In a real app, send resetToken via email (mocked here)
             LOGGER.info("Reset token generated for email: " + request.getEmail());
             return ResponseEntity.ok("Password reset token generated: " + resetToken);
         } catch (Exception e) {

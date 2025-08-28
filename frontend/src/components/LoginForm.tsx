@@ -27,7 +27,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
       setToken(response.data.accessToken);
       setRefreshToken(response.data.refreshToken);
       setEmail(username);
-      setRole(response.data.role);
+      setRole(response.data.role); // Expecting 'ROLE_A', 'ROLE_C', etc.
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('email', username);
@@ -35,7 +35,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
       setError('');
       setLocalError('');
       console.log('Login successful:', response.data);
-      navigate(response.data.role === 'A' ? '/admin/users' : '/');
+      navigate('/');
     } catch (err: any) {
       const errorMessage = 'Login failed: ' + (err.response?.data || err.message);
       console.error(errorMessage);

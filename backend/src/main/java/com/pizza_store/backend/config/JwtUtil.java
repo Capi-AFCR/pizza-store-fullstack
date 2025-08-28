@@ -1,8 +1,11 @@
 package com.pizza_store.backend.config;
 
+import com.pizza_store.backend.model.User;
+import com.pizza_store.backend.repository.UserRepository;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -19,14 +22,20 @@ public class JwtUtil {
     private final long ACCESS_TOKEN_EXPIRATION = 3600000; // 1 hour
     private final long REFRESH_TOKEN_EXPIRATION = 604800000; // 7 days
 
+    @Autowired
+    private UserRepository userRepository;
+
     public JwtUtil(@Value("${jwt.secret}") String secret) {
         this.secret = secret;
         this.key = Keys.hmacShaKeyFor(secret.getBytes());
     }
 
     public String generateToken(String username) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new RuntimeException("User not found: " + username));
         return Jwts.builder()
                 .setSubject(username)
+                .claim("role", "ROLE_" + user.getRole())
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION))
                 .signWith(key, SignatureAlgorithm.HS512)
@@ -44,6 +53,15 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody()
                 .getSubject();
+    }
+
+    public String getRoleFromToken(String token) {
+        return Jwts.parser()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .get("role", String.class);
     }
 
     public boolean validateToken(String token) {
