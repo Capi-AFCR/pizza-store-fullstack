@@ -37,9 +37,11 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                         .requestMatchers("/api/users/**").hasAuthority("ROLE_A")
-                        .requestMatchers("/api/orders/user").authenticated()
-                        .requestMatchers("/api/orders/**").hasAuthority("ROLE_A")
                         .requestMatchers("/api/products/**").authenticated()
+                        .requestMatchers("/api/orders/user").authenticated()
+                        .requestMatchers("/api/orders").hasAnyAuthority("ROLE_A", "ROLE_K", "ROLE_D", "ROLE_W")
+                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_K", "ROLE_D", "ROLE_W")
+                        .requestMatchers("/api/orders").authenticated()
                         .anyRequest().authenticated()
                 )
                 .csrf(csrf -> csrf.disable())

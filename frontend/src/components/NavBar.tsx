@@ -26,7 +26,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
   };
 
   return (
-    <nav className="bg-blue-600 text-white p-4 flex justify-between items-center">
+    <nav className="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md">
       <div className="text-xl font-bold">
         <Link to="/">Pizza Store</Link>
       </div>
@@ -34,7 +34,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
         {token && (
           <Link
             to="/orders"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
           >
             Orders
           </Link>
@@ -42,7 +42,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
         {token && role === 'ROLE_A' && (
           <Link
             to="/admin/users"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
           >
             Users
           </Link>
@@ -50,7 +50,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
         {token && role === 'ROLE_A' && (
           <Link
             to="/admin/orders"
-            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
           >
             Manage Orders
           </Link>
@@ -58,7 +58,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
         {token && (
           <button
             onClick={handleLogout}
-            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors duration-200"
           >
             Logout
           </button>

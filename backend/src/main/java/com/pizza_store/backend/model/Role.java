@@ -4,5 +4,6 @@ public enum Role {
     A, // ADMIN
     C, // CLIENT
     D, // DELIVERY
-    W  // WAITER
+    W, // WAITER
+    K  // KITCHEN
 }

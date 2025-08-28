@@ -49,6 +49,11 @@ public class DataInitializer implements CommandLineRunner {
             client.setCreatedBy("system");
             client.setModifiedBy("system");
             userRepository.save(client);
+
+            User kitchen = new User("Kitchen User", "kitchen@example.com", passwordEncoder.encode("password"), Role.K, true);
+            kitchen.setCreatedBy("system");
+            kitchen.setModifiedBy("system");
+            userRepository.save(kitchen);
         }
 
         // Initialize products
@@ -64,18 +69,30 @@ public class DataInitializer implements CommandLineRunner {
         if (orderRepository.count() == 0) {
             User client = userRepository.findByEmail("client@example.com").orElse(null);
             if (client != null) {
-                Order order = new Order(
+                Order order1 = new Order(
                         client.getId(),
                         Arrays.asList(
                                 new OrderItem(1L, 2, 6.99), // 2 Mozzarella Sticks
                                 new OrderItem(2L, 1, 12.99) // 1 Margherita Pizza
                         ),
-                        6.99 * 2 + 12.99, // Total price
+                        6.99 * 2 + 12.99,
                         OrderStatus.PE
                 );
-                order.setCreatedBy("client@example.com");
-                order.setModifiedBy("client@example.com");
-                orderRepository.save(order);
+                order1.setCreatedBy("client@example.com");
+                order1.setModifiedBy("client@example.com");
+                orderRepository.save(order1);
+
+                Order order2 = new Order(
+                        client.getId(),
+                        Arrays.asList(
+                                new OrderItem(3L, 1, 5.99) // 1 Garlic Bread
+                        ),
+                        5.99,
+                        OrderStatus.RE
+                );
+                order2.setCreatedBy("waiter@example.com");
+                order2.setModifiedBy("kitchen@example.com");
+                orderRepository.save(order2);
             }
         }
     }

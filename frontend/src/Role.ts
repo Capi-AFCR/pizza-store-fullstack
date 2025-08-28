@@ -1,1 +1,1 @@
-export type Role = 'A' | 'D' | 'W' | 'C';
+export type Role = 'A' | 'D' | 'W' | 'C' | 'K';
