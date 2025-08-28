@@ -1,83 +1,132 @@
-import React from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import axios, { AxiosResponse } from 'axios';
+import { Link, useNavigate } from 'react-router-dom';
 import { User } from '../types';
 
 interface UserListProps {
-  users: User[];
-  error: string;
-  setEditingUser: (user: User | null) => void;
-  deleteUser: (id: number) => void;
-  setViewingUser: (user: User | null) => void;
+  setError: Dispatch<SetStateAction<string>>;
 }
 
-const UserList: React.FC<UserListProps> = ({ users, error, setEditingUser, deleteUser, setViewingUser }) => {
-  const roleNames: { [key: string]: string } = {
-    ROLE_A: 'Admin',
-    ROLE_D: 'Delivery',
-    ROLE_W: 'Waiter',
-    ROLE_C: 'Client',
-    ROLE_K: 'Kitchen'
+const UserList: React.FC<UserListProps> = ({ setError }) => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [error, setLocalError] = useState<string>(''); // Local error state
+  const navigate = useNavigate();
+  const token = localStorage.getItem('accessToken') || '';
+
+  const refreshAccessToken = async () => {
+    try {
+      const email = localStorage.getItem('email') || '';
+      const refreshToken = localStorage.getItem('refreshToken') || '';
+      console.log('Attempting to refresh token for email:', email);
+      const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/refresh', {
+        email,
+        refreshToken
+      });
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('role', response.data.role);
+      console.log('Token refreshed successfully:', response.data.accessToken.substring(0, 10) + '...');
+      return response.data.accessToken;
+    } catch (err: any) {
+      console.error('Token refresh failed:', err.response?.data || err.message);
+      setLocalError('Failed to refresh token. Please log in again.');
+      setError('Failed to refresh token. Please log in again.');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('email');
+      localStorage.removeItem('role');
+      navigate('/login');
+      return null;
+    }
   };
 
-  const roleStyles: { [key: string]: string } = {
-    ROLE_A: 'bg-blue-100 text-blue-800',
-    ROLE_D: 'bg-green-100 text-green-800',
-    ROLE_W: 'bg-yellow-100 text-yellow-800',
-    ROLE_C: 'bg-purple-100 text-purple-800',
-    ROLE_K: 'bg-orange-100 text-orange-800'
+  const fetchUsers = async () => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      console.log('Fetching users with token:', token.substring(0, 10) + '...');
+      const response: AxiosResponse<User[]> = await axios.get('/api/users', config);
+      setUsers(response.data);
+      setLocalError('');
+    } catch (err: any) {
+      console.error('Fetch users failed:', err.response?.data || err.message, 'Status:', err.response?.status);
+      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          const config = { headers: { Authorization: `Bearer ${newToken}` } };
+          const response: AxiosResponse<User[]> = await axios.get('/api/users', config);
+          setUsers(response.data);
+          setLocalError('');
+        }
+      } else {
+        setLocalError('Failed to fetch users: ' + (err.response?.data || err.message));
+      }
+    }
   };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      console.log('Deleting user ID:', id);
+      await axios.delete(`/api/users/${id}`, config);
+      setUsers(prev => prev.filter(user => user.id !== id));
+      setLocalError('');
+    } catch (err: any) {
+      console.error('Delete user failed:', err.response?.data || err.message, 'Status:', err.response?.status);
+      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          const config = { headers: { Authorization: `Bearer ${newToken}` } };
+          await axios.delete(`/api/users/${id}`, config);
+          setUsers(prev => prev.filter(user => user.id !== id));
+          setLocalError('');
+        }
+      } else {
+        setLocalError('Failed to delete user: ' + (err.response?.data || err.message));
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [token]);
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h3 className="text-xl font-bold mb-4 text-gray-800">User List</h3>
+    <div className="container mx-auto p-6">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Manage Users</h2>
       {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-      {users.length === 0 && !error && <p className="text-gray-600">No users found.</p>}
-      <div className="grid gap-4">
-        {users.map(user => (
-          <div
-            key={user.id || Math.random()}
-            className="border rounded-lg p-4 bg-white hover:shadow-lg transition-shadow duration-200"
-          >
-            <div className="flex justify-between items-center">
+      <Link
+        to="/admin/users/new"
+        className="bg-blue-600 text-white p-2 rounded mb-4 inline-block hover:bg-blue-700 transition-colors duration-200"
+      >
+        Add New User
+      </Link>
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        {users.length === 0 && !error && <p className="text-gray-600">No users found.</p>}
+        <div className="grid gap-4">
+          {users.map(user => (
+            <div key={user.id} className="flex justify-between items-center border-b py-2">
               <div>
-                <p className="text-lg font-semibold text-gray-800">{user.name}</p>
+                <p className="text-gray-700 font-semibold">{user.name}</p>
                 <p className="text-gray-600">{user.email}</p>
-                <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-medium ${roleStyles[user.role] || 'bg-gray-100 text-gray-800'}`}>
-                  {roleNames[user.role] || user.role}
-                </span>
-                <p className="text-sm text-gray-500 mt-1">Active: {user.active ? 'Yes' : 'No'}</p>
+                <p className="text-gray-600">Role: {user.role}</p>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setEditingUser(user)}
-                  className="relative group bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors duration-200"
+              <div className="flex gap-2">
+                <Link
+                  to={`/admin/users/${user.id}`}
+                  className="bg-yellow-500 text-white p-2 rounded hover:bg-yellow-600 transition-colors duration-200"
                 >
-                  Edit
-                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 -mt-10">
-                    Edit user details
-                  </div>
-                </button>
+                  View/Edit
+                </Link>
                 <button
-                  onClick={() => user.id && deleteUser(user.id)}
-                  className="relative group bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors duration-200"
+                  onClick={() => handleDelete(user.id!)}
+                  className="bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
                 >
                   Delete
-                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 -mt-10">
-                    Delete user
-                  </div>
-                </button>
-                <button
-                  onClick={() => setViewingUser(user)}
-                  className="relative group bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 transition-colors duration-200"
-                >
-                  View
-                  <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 -mt-10">
-                    View user details
-                  </div>
                 </button>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

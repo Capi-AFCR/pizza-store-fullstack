@@ -1,20 +1,19 @@
 package com.pizza_store.backend.config;
 
-import com.pizza_store.backend.service.UserDetailsServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-
 import java.io.IOException;
-import java.util.Collections;
 import java.util.logging.Logger;
 
 @Component
@@ -22,61 +21,52 @@ public class JwtFilter extends OncePerRequestFilter {
 
     private static final Logger LOGGER = Logger.getLogger(JwtFilter.class.getName());
 
-    private final UserDetailsServiceImpl userDetailsService;
-    private final JwtUtil jwtUtil;
+    @Autowired
+    private UserDetailsService userDetailsService;
 
-    public JwtFilter(UserDetailsServiceImpl userDetailsService, JwtUtil jwtUtil) {
-        this.userDetailsService = userDetailsService;
-        this.jwtUtil = jwtUtil;
-    }
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String path = request.getRequestURI();
-        if (path.startsWith("/api/auth/login") ||
-                path.startsWith("/api/auth/register") ||
-                path.startsWith("/api/auth/forgot-password") ||
-                path.startsWith("/api/auth/reset-password")) {
-            LOGGER.info("Bypassing JWT filter for path: " + path);
-            filterChain.doFilter(request, response);
-            return;
-        }
+        final String authorizationHeader = request.getHeader("Authorization");
+        LOGGER.info("Processing request for: " + request.getRequestURI());
 
-        String authHeader = request.getHeader("Authorization");
-        String token = null;
         String username = null;
+        String jwt = null;
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            jwt = authorizationHeader.substring(7);
             try {
-                username = jwtUtil.getUsernameFromToken(token);
-                LOGGER.info("Extracted username from token: " + username);
+                username = jwtUtil.extractUsername(jwt);
+                LOGGER.info("Extracted username from JWT: " + username);
             } catch (Exception e) {
-                LOGGER.severe("Failed to extract username from token: " + e.getMessage());
+                LOGGER.severe("Failed to extract username from JWT: " + e.getMessage());
             }
+        } else {
+            LOGGER.warning("No Bearer token found in Authorization header");
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-            if (jwtUtil.validateToken(token)) {
-                String role = jwtUtil.getRoleFromToken(token);
-                LOGGER.info("Token validated for user: " + username + ", role: " + role);
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                Collections.singletonList(new SimpleGrantedAuthority(role))
-                        );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
-            } else {
-                LOGGER.warning("Invalid token for user: " + username);
+            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+            try {
+                if (jwtUtil.validateToken(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
+                            userDetails, null, userDetails.getAuthorities());
+                    authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                    LOGGER.info("Successfully authenticated user: " + username + " with roles: " + userDetails.getAuthorities());
+                } else {
+                    LOGGER.warning("JWT validation failed for user: " + username);
+                }
+            } catch (Exception e) {
+                LOGGER.severe("JWT validation error: " + e.getMessage());
             }
-        } else if (token != null) {
-            LOGGER.warning("No username extracted or authentication already set for token: " + token);
+        } else if (username == null && jwt != null) {
+            LOGGER.warning("No username extracted from JWT");
         }
 
-        filterChain.doFilter(request, response);
+        chain.doFilter(request, response);
     }
 }

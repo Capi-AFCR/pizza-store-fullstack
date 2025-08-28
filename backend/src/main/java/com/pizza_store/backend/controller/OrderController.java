@@ -67,6 +67,24 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getUserOrders(userId));
     }
 
+    @GetMapping("/kitchen")
+    public ResponseEntity<List<Order>> getKitchenOrders() {
+        LOGGER.info("Fetching kitchen orders");
+        return ResponseEntity.ok(orderService.getKitchenOrders());
+    }
+
+    @GetMapping("/delivery")
+    public ResponseEntity<List<Order>> getDeliveryOrders() {
+        LOGGER.info("Fetching delivery orders");
+        return ResponseEntity.ok(orderService.getDeliveryOrders());
+    }
+
+    @GetMapping("/waiter")
+    public ResponseEntity<List<Order>> getWaiterOrders() {
+        LOGGER.info("Fetching waiter orders");
+        return ResponseEntity.ok(orderService.getWaiterOrders());
+    }
+
     @GetMapping
     public ResponseEntity<List<Order>> getAllOrders() {
         LOGGER.info("Fetching all orders");
