@@ -3,6 +3,7 @@ package com.pizza_store.backend.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -36,7 +37,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/refresh").permitAll()
                         .requestMatchers("/api/users").hasAuthority("ROLE_A")
                         .requestMatchers("/api/users/clients").hasAnyAuthority("ROLE_A", "ROLE_W")
-                        .requestMatchers("/api/products").authenticated()
+                        .requestMatchers("/api/products").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
+                        .requestMatchers("/api/products/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/orders/user").authenticated()
                         .requestMatchers("/api/orders/kitchen").hasAuthority("ROLE_K")
                         .requestMatchers("/api/orders/delivery").hasAuthority("ROLE_D")

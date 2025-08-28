@@ -1,54 +1,98 @@
-import React from 'react';
+import React, { useState, Dispatch, SetStateAction } from 'react';
+import axios, { AxiosResponse } from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { User } from '../types';
 
-interface UserDetailsProps {
-  user: User;
-  setViewingUser: (user: User | null) => void;
+interface UserFormProps {
+  setError: Dispatch<SetStateAction<string>>;
 }
 
-const UserDetails: React.FC<UserDetailsProps> = ({ user, setViewingUser }) => {
-  const roleNames: { [key: string]: string } = {
-    ROLE_A: 'Admin',
-    ROLE_D: 'Delivery',
-    ROLE_W: 'Waiter',
-    ROLE_C: 'Client',
-    ROLE_K: 'Kitchen'
-  };
+const UserForm: React.FC<UserFormProps> = ({ setError }) => {
+  const [formData, setFormData] = useState<User>({
+    name: '',
+    email: '',
+    password: '',
+    role: 'C',
+    active: true,
+    createdBy: 'system',
+    modifiedBy: 'system'
+  });
+  const [error, setLocalError] = useState<string>(''); // Local error state
+  const navigate = useNavigate();
+  const token = localStorage.getItem('accessToken') || '';
 
-  const roleStyles: { [key: string]: string } = {
-    ROLE_A: 'bg-blue-100 text-blue-800',
-    ROLE_D: 'bg-green-100 text-green-800',
-    ROLE_W: 'bg-yellow-100 text-yellow-800',
-    ROLE_C: 'bg-purple-100 text-purple-800',
-    ROLE_K: 'bg-orange-100 text-orange-800'
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      console.log('Creating user:', formData);
+      const response: AxiosResponse<User> = await axios.post('/api/users', formData, config);
+      setLocalError('');
+      navigate('/admin/users');
+    } catch (err: any) {
+      console.error('Create user failed:', err.response?.data || err.message);
+      setLocalError(err.response?.data || 'Failed to create user');
+    }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h3 className="text-xl font-bold mb-4 text-gray-800">User Details</h3>
-      <div className="space-y-2">
-        <p className="text-gray-700"><strong>Name:</strong> {user.name}</p>
-        <p className="text-gray-700"><strong>Email:</strong> {user.email}</p>
-        <div>
-          <p className="text-gray-700"><strong>Role:</strong></p>
-          <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${roleStyles[user.role] || 'bg-gray-100 text-gray-800'}`}>
-            {roleNames[user.role] || user.role}
-          </span>
+    <div className="container mx-auto p-6 max-w-md">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Add New User</h2>
+      {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Name</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
+            required
+          />
         </div>
-        <p className="text-gray-700"><strong>Active:</strong> {user.active ? 'Yes' : 'No'}</p>
-        <p className="text-gray-700"><strong>Created By:</strong> {user.createdBy}</p>
-        <p className="text-gray-700"><strong>Created At:</strong> {user.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
-        <p className="text-gray-700"><strong>Modified By:</strong> {user.modifiedBy}</p>
-        <p className="text-gray-700"><strong>Modified At:</strong> {user.modifiedAt ? new Date(user.modifiedAt).toLocaleString() : 'N/A'}</p>
-      </div>
-      <button
-        onClick={() => setViewingUser(null)}
-        className="mt-4 bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
-      >
-        Back to User List
-      </button>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <input
+            type="email"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Password</label>
+          <input
+            type="password"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">Role</label>
+          <select
+            value={formData.role}
+            onChange={(e) => setFormData({ ...formData, role: e.target.value as 'A' | 'C' | 'K' | 'D' | 'W' })}
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="A">Admin</option>
+            <option value="C">Client</option>
+            <option value="K">Kitchen</option>
+            <option value="D">Delivery</option>
+            <option value="W">Waiter</option>
+          </select>
+        </div>
+        <button
+          type="submit"
+          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
+        >
+          Create User
+        </button>
+      </form>
     </div>
   );
 };
 
-export default UserDetails;
+export default UserForm;

@@ -27,6 +27,13 @@ const AdminDashboard: React.FC = () => {
           <h3 className="text-xl font-semibold">Create Order for Client</h3>
           <p className="mt-2">Place a new order for a client.</p>
         </Link>
+        <Link
+          to="/admin/products"
+          className="bg-blue-600 text-white p-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 text-center"
+        >
+          <h3 className="text-xl font-semibold">Manage Products</h3>
+          <p className="mt-2">Create, update, or delete menu items.</p>
+        </Link>
       </div>
     </div>
   );

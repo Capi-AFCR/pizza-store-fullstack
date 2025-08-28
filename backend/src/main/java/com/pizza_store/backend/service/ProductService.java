@@ -3,7 +3,6 @@ package com.pizza_store.backend.service;
 import com.pizza_store.backend.model.Product;
 import com.pizza_store.backend.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,16 +13,26 @@ public class ProductService {
     @Autowired
     private ProductRepository productRepository;
 
-    public List<Product> getAllProducts() {
-        return productRepository.findAll();
+    public List<Product> getAllActiveProducts() {
+        return productRepository.findByIsActiveTrue();
     }
 
     public Product createProduct(Product product) {
-        String currentUser = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : "system";
-        product.setCreatedBy(currentUser);
-        product.setModifiedBy(currentUser);
+        product.setIsActive(true);
         return productRepository.save(product);
+    }
+
+    public Product updateProduct(Product product) {
+        if (!productRepository.existsById(product.getId())) {
+            throw new IllegalArgumentException("Product with ID " + product.getId() + " does not exist");
+        }
+        return productRepository.save(product);
+    }
+
+    public void deleteProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Product with ID " + id + " does not exist"));
+        product.setIsActive(false);
+        productRepository.save(product);
     }
 }
