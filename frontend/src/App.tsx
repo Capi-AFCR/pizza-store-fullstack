@@ -8,11 +8,15 @@ import ResetPasswordForm from './components/ResetPasswordForm';
 import UserForm from './components/UserForm';
 import UserList from './components/UserList';
 import UserDetails from './components/UserDetails';
-import Home from './components/Home';
 import NavBar from './components/NavBar';
 import OrderForm from './components/OrderForm';
 import OrderHistory from './components/OrderHistory';
 import AdminOrders from './components/AdminOrders';
+import AdminDashboard from './components/AdminDashboard';
+import KitchenDashboard from './components/KitchenDashboard';
+import DeliveryDashboard from './components/DeliveryDashboard';
+import WaiterDashboard from './components/WaiterDashboard';
+import ClientDashboard from './components/ClientDashboard';
 import { CartProvider } from './CartContext';
 import { User } from './types';
 import './index.css';
@@ -129,6 +133,16 @@ const App: React.FC = () => {
           <Route path="/forgot-password" element={<ForgotPasswordForm setError={setError} />} />
           <Route path="/reset-password" element={<ResetPasswordForm setError={setError} />} />
           <Route
+            path="/admin"
+            element={
+              token && role === 'ROLE_A' ? (
+                <AdminDashboard />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
             path="/admin/users"
             element={
               token && role === 'ROLE_A' ? (
@@ -159,6 +173,36 @@ const App: React.FC = () => {
             }
           />
           <Route
+            path="/kitchen"
+            element={
+              token && role === 'ROLE_K' ? (
+                <KitchenDashboard />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/delivery"
+            element={
+              token && role === 'ROLE_D' ? (
+                <DeliveryDashboard />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/waiter"
+            element={
+              token && role === 'ROLE_W' ? (
+                <WaiterDashboard />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
             path="/orders"
             element={
               token ? (
@@ -178,7 +222,33 @@ const App: React.FC = () => {
               )
             }
           />
-          <Route path="/" element={<Home />} />
+          <Route
+            path="/"
+            element={
+              token && role !== 'ROLE_C' ? (
+                <Navigate to={
+                  role === 'ROLE_A' ? '/admin' :
+                  role === 'ROLE_K' ? '/kitchen' :
+                  role === 'ROLE_D' ? '/delivery' :
+                  role === 'ROLE_W' ? '/waiter' : '/'
+                } />
+              ) : (
+                <ClientDashboard />
+              )
+            }
+          />
+          <Route path="*" element={
+            token && role !== 'ROLE_C' ? (
+              <Navigate to={
+                role === 'ROLE_A' ? '/admin' :
+                role === 'ROLE_K' ? '/kitchen' :
+                role === 'ROLE_D' ? '/delivery' :
+                role === 'ROLE_W' ? '/waiter' : '/'
+              } />
+            ) : (
+              <ClientDashboard />
+            )
+          } />
         </Routes>
       </CartProvider>
     </Router>

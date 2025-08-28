@@ -1,6 +1,6 @@
 import React, { useState, Dispatch, SetStateAction } from 'react';
 import axios, { AxiosResponse } from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 interface LoginFormProps {
   setToken: Dispatch<SetStateAction<string>>;
@@ -11,15 +11,13 @@ interface LoginFormProps {
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEmail, setRole, setError }) => {
-  const [error, setLocalError] = useState<string>('');
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      console.log('Attempting login with:', { username, password });
       const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/login', {
         username,
         password,
@@ -27,55 +25,81 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
       setToken(response.data.accessToken);
       setRefreshToken(response.data.refreshToken);
       setEmail(username);
-      setRole(response.data.role); // Expecting 'ROLE_A', 'ROLE_C', etc.
+      setRole(response.data.role);
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('email', username);
       localStorage.setItem('role', response.data.role);
       setError('');
-      setLocalError('');
-      console.log('Login successful:', response.data);
-      navigate('/');
+      // Redirect to role-specific dashboard
+      switch (response.data.role) {
+        case 'ROLE_A':
+          navigate('/admin');
+          break;
+        case 'ROLE_K':
+          navigate('/kitchen');
+          break;
+        case 'ROLE_D':
+          navigate('/delivery');
+          break;
+        case 'ROLE_W':
+          navigate('/waiter');
+          break;
+        case 'ROLE_C':
+          navigate('/client');
+          break;
+        default:
+          navigate('/login');
+      }
     } catch (err: any) {
-      const errorMessage = 'Login failed: ' + (err.response?.data || err.message);
-      console.error(errorMessage);
-      setError(errorMessage);
-      setLocalError(errorMessage);
+      setError('Login failed: ' + (err.response?.data || err.message));
     }
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-md">
-      <h2 className="text-2xl font-bold mb-4">Login</h2>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
-      <form onSubmit={handleLogin} className="space-y-4">
+    <div className="container mx-auto p-6 max-w-md">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Login</h2>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block">Email</label>
+          <label className="block text-sm font-medium text-gray-700">Email</label>
           <input
             type="email"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="border p-2 w-full rounded"
+            className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
             required
           />
         </div>
         <div>
-          <label className="block">Password</label>
+          <label className="block text-sm font-medium text-gray-700">Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="border p-2 w-full rounded"
+            className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
             required
           />
         </div>
-        <button type="submit" className="bg-blue-500 text-white p-2 rounded w-full">
+        <button
+          type="submit"
+          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
+        >
           Login
         </button>
       </form>
       <div className="mt-4 text-center">
-        <p>Don't have an account? <Link to="/register" className="text-blue-500">Register</Link></p>
-        <p><Link to="/forgot-password" className="text-blue-500">Forgot Password?</Link></p>
+        <p className="text-gray-600">
+          Don't have an account?{' '}
+          <a href="/register" className="text-blue-600 hover:underline">
+            Register
+          </a>
+        </p>
+        <p className="text-gray-600">
+          Forgot your password?{' '}
+          <a href="/forgot-password" className="text-blue-600 hover:underline">
+            Reset Password
+          </a>
+        </p>
       </div>
     </div>
   );

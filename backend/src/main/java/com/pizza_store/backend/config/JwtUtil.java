@@ -1,78 +1,85 @@
 package com.pizza_store.backend.config;
 
-import com.pizza_store.backend.model.User;
-import com.pizza_store.backend.repository.UserRepository;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.security.Key;
 import java.util.Date;
-import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
 
 @Component
 public class JwtUtil {
+
     @Value("${jwt.secret}")
     private String secret;
 
-    private final Key key;
-    private final long ACCESS_TOKEN_EXPIRATION = 3600000; // 1 hour
-    private final long REFRESH_TOKEN_EXPIRATION = 604800000; // 7 days
+    @Value("${jwt.expiration}")
+    private Long accessTokenExpiration;
 
-    @Autowired
-    private UserRepository userRepository;
+    @Value("${jwt.refresh.expiration}")
+    private Long refreshTokenExpiration;
 
-    public JwtUtil(@Value("${jwt.secret}") String secret) {
-        this.secret = secret;
-        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+    public String generateToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", userDetails.getAuthorities().stream()
+                .map(auth -> auth.getAuthority())
+                .findFirst()
+                .orElse(""));
+        return createToken(claims, userDetails.getUsername(), accessTokenExpiration);
     }
 
-    public String generateToken(String username) {
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("User not found: " + username));
+    public String generateRefreshToken(String username) {
+        Map<String, Object> claims = new HashMap<>();
+        return createToken(claims, username, refreshTokenExpiration);
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, Long expiration) {
         return Jwts.builder()
-                .setSubject(username)
-                .claim("role", "ROLE_" + user.getRole())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION))
-                .signWith(key, SignatureAlgorithm.HS512)
+                .setClaims(claims)
+                .setSubject(subject)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + expiration * 1000))
+                .signWith(Keys.hmacShaKeyFor(secret.getBytes()), SignatureAlgorithm.HS512)
                 .compact();
     }
 
-    public String generateRefreshToken() {
-        return UUID.randomUUID().toString();
+    public Boolean validateToken(String token, UserDetails userDetails) {
+        final String username = extractUsername(token);
+        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
-    public String getUsernameFromToken(String token) {
+    public String extractUsername(String token) {
+        return extractClaim(token, Claims::getSubject);
+    }
+
+    public String extractRole(String token) {
+        return extractClaim(token, claims -> claims.get("role", String.class));
+    }
+
+    public Date extractExpiration(String token) {
+        return extractClaim(token, Claims::getExpiration);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+        final Claims claims = extractAllClaims(token);
+        return claimsResolver.apply(claims);
+    }
+
+    private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .setSigningKey(key)
+                .setSigningKey(Keys.hmacShaKeyFor(secret.getBytes()))
                 .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .getSubject();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
-    public String getRoleFromToken(String token) {
-        return Jwts.parser()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody()
-                .get("role", String.class);
-    }
-
-    public boolean validateToken(String token) {
-        try {
-            Jwts.parser()
-                    .setSigningKey(key)
-                    .build()
-                    .parseClaimsJws(token);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+    public Boolean isTokenExpired(String token) {
+        return extractExpiration(token).before(new Date());
     }
 }

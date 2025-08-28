@@ -31,7 +31,20 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
         <Link to="/">Pizza Store</Link>
       </div>
       <div className="space-x-4">
-        {token && (
+        {token && (role === 'ROLE_A' || role === 'ROLE_C' || role === 'ROLE_K' || role === 'ROLE_D' || role === 'ROLE_W') && (
+          <Link
+            to={
+              role === 'ROLE_A' ? '/admin' :
+              role === 'ROLE_K' ? '/kitchen' :
+              role === 'ROLE_D' ? '/delivery' :
+              role === 'ROLE_W' ? '/waiter' : '/'
+            }
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
+          >
+            Dashboard
+          </Link>
+        )}
+        {token && (role === 'ROLE_C') && (
           <Link
             to="/orders"
             className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
@@ -62,6 +75,22 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
           >
             Logout
           </button>
+        )}
+        {!token && (
+          <>
+            <Link
+              to="/login"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
+            >
+              Login
+            </Link>
+            <Link
+              to="/register"
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded transition-colors duration-200"
+            >
+              Register
+            </Link>
+          </>
         )}
       </div>
     </nav>

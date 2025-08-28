@@ -33,6 +33,10 @@ export interface Product {
   modifiedAt: string;
 }
 
+export interface CartItem extends Product {
+  quantity: number;
+}
+
 export interface OrderItem {
   productId: number;
   quantity: number;

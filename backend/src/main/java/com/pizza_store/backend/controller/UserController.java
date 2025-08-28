@@ -1,87 +1,68 @@
 package com.pizza_store.backend.controller;
 
-import com.pizza_store.backend.model.Role;
 import com.pizza_store.backend.model.User;
-import com.pizza_store.backend.repository.UserRepository;
 import com.pizza_store.backend.service.UserService;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.logging.Logger;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
 
-    @Autowired
-    private UserRepository userRepository;
+    private static final Logger LOGGER = Logger.getLogger(UserController.class.getName());
 
     @Autowired
     private UserService userService;
 
-    // Create a new user
-    @PostMapping
-    public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
-        try {
-            boolean isAdmin = SecurityContextHolder.getContext().getAuthentication() != null &&
-                    SecurityContextHolder.getContext().getAuthentication().getAuthorities()
-                            .stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_A"));
-            User savedUser = userService.createUser(user, isAdmin);
-            return new ResponseEntity<>(savedUser, HttpStatus.CREATED);
-        } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
-        }
-    }
-
-    // Get all users
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
-        List<User> users = userRepository.findAll();
-        return new ResponseEntity<>(users, HttpStatus.OK);
+        LOGGER.info("Fetching all users");
+        return ResponseEntity.ok(userService.getAllUsers());
     }
 
-    // Get a user by ID
-    @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
-        Optional<User> user = userRepository.findById(id);
-        return user.map(value -> new ResponseEntity<>(value, HttpStatus.OK))
-                .orElseGet(() -> new ResponseEntity<>(null, HttpStatus.NOT_FOUND));
+    @GetMapping("/clients")
+    public ResponseEntity<List<User>> getClientUsers() {
+        LOGGER.info("Fetching client users");
+        return ResponseEntity.ok(userService.getClientUsers());
     }
 
-    // Get users by role
-    @GetMapping("/role/{role}")
-    public ResponseEntity<List<User>> getUsersByRole(@PathVariable Role role) {
-        List<User> users = userRepository.findByRole(role);
-        return new ResponseEntity<>(users, HttpStatus.OK);
-    }
-
-    // Update a user
-    @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User updatedUser) {
+    @PostMapping
+    public ResponseEntity<?> createUser(@RequestBody User user) {
         try {
-            User savedUser = userService.updateUser(id, updatedUser);
-            return new ResponseEntity<>(savedUser, HttpStatus.OK);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
+            LOGGER.info("Creating user: " + user.getEmail());
+            User createdUser = userService.createUser(user);
+            return ResponseEntity.status(201).body(createdUser);
         } catch (Exception e) {
-            return new ResponseEntity<>(null, HttpStatus.BAD_REQUEST);
+            LOGGER.severe("Failed to create user: " + e.getMessage());
+            return ResponseEntity.status(400).body("Failed to create user: " + e.getMessage());
         }
     }
 
-    // Delete a user
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody User user) {
+        try {
+            LOGGER.info("Updating user ID: " + id);
+            User updatedUser = userService.updateUser(id, user);
+            return ResponseEntity.ok(updatedUser);
+        } catch (Exception e) {
+            LOGGER.severe("Failed to update user: " + e.getMessage());
+            return ResponseEntity.status(400).body("Failed to update user: " + e.getMessage());
+        }
+    }
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
-        if (userRepository.existsById(id)) {
-            userRepository.deleteById(id);
-            return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-        } else {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        try {
+            LOGGER.info("Deleting user ID: " + id);
+            userService.deleteUser(id);
+            return ResponseEntity.ok("User deleted successfully");
+        } catch (Exception e) {
+            LOGGER.severe("Failed to delete user: " + e.getMessage());
+            return ResponseEntity.status(400).body("Failed to delete user: " + e.getMessage());
         }
     }
 }

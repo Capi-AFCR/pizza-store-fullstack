@@ -8,6 +8,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
@@ -41,6 +42,26 @@ public class OrderService {
         return orderRepository.findAll();
     }
 
+    public List<Order> getKitchenOrders() {
+        return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() == OrderStatus.PE || order.getStatus() == OrderStatus.AP)
+                .collect(Collectors.toList());
+    }
+
+    public List<Order> getDeliveryOrders() {
+        return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() == OrderStatus.RE || order.getStatus() == OrderStatus.OW)
+                .collect(Collectors.toList());
+    }
+
+    public List<Order> getWaiterOrders() {
+        return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() == OrderStatus.PE ||
+                        order.getStatus() == OrderStatus.RE ||
+                        order.getStatus() == OrderStatus.DN)
+                .collect(Collectors.toList());
+    }
+
     public Order updateOrderStatus(Long id, OrderStatus newStatus) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + id));
@@ -57,7 +78,6 @@ public class OrderService {
                 .map(User::getRole)
                 .orElseThrow(() -> new RuntimeException("User not found: " + currentUserEmail));
 
-        // Validate status transitions
         boolean isValidTransition = false;
         switch (order.getStatus()) {
             case PE:

@@ -173,4 +173,8 @@ public class User {
     public void setModifiedAt(LocalDateTime modifiedAt) {
         this.modifiedAt = modifiedAt;
     }
+
+    public boolean isActive() {
+        return this.getActive();
+    }
 }

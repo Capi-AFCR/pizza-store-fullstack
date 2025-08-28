@@ -1,6 +1,6 @@
 package com.pizza_store.backend.config;
 
-import com.pizza_store.backend.service.UserDetailsServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,6 +16,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Autowired
+    private JwtFilter jwtFilter;
+
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -27,21 +30,19 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtFilter jwtFilter(UserDetailsServiceImpl userDetailsService, JwtUtil jwtUtil) {
-        return new JwtFilter(userDetailsService, jwtUtil);
-    }
-
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
-                        .requestMatchers("/api/users/**").hasAuthority("ROLE_A")
-                        .requestMatchers("/api/products/**").authenticated()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/refresh").permitAll()
+                        .requestMatchers("/api/users").hasAuthority("ROLE_A")
+                        .requestMatchers("/api/users/clients").hasAnyAuthority("ROLE_A", "ROLE_W")
+                        .requestMatchers("/api/products").authenticated()
                         .requestMatchers("/api/orders/user").authenticated()
-                        .requestMatchers("/api/orders").hasAnyAuthority("ROLE_A", "ROLE_K", "ROLE_D", "ROLE_W")
-                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_K", "ROLE_D", "ROLE_W")
-                        .requestMatchers("/api/orders").authenticated()
+                        .requestMatchers("/api/orders/kitchen").hasAuthority("ROLE_K")
+                        .requestMatchers("/api/orders/delivery").hasAuthority("ROLE_D")
+                        .requestMatchers("/api/orders/waiter").hasAuthority("ROLE_W")
+                        .requestMatchers("/api/orders").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
+                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .anyRequest().authenticated()
                 )
                 .csrf(csrf -> csrf.disable())

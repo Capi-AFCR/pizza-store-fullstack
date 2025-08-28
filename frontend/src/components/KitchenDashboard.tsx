@@ -3,12 +3,11 @@ import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Order } from '../types';
 
-const AdminOrders: React.FC = () => {
+const KitchenDashboard: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string>('');
   const [selectedStatuses, setSelectedStatuses] = useState<Map<number, string>>(new Map());
   const navigate = useNavigate();
-  const role = localStorage.getItem('role') || '';
 
   const refreshAccessToken = async () => {
     try {
@@ -37,12 +36,12 @@ const AdminOrders: React.FC = () => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        setError('Please log in to manage orders.');
+        setError('Please log in to view kitchen orders.');
         navigate('/login');
         return;
       }
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response: AxiosResponse<Order[]> = await axios.get('/api/orders', config);
+      const response: AxiosResponse<Order[]> = await axios.get('/api/orders/kitchen', config);
       setOrders(response.data);
       setError('');
     } catch (err: any) {
@@ -50,7 +49,7 @@ const AdminOrders: React.FC = () => {
         const newToken = await refreshAccessToken();
         if (newToken) {
           const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const response: AxiosResponse<Order[]> = await axios.get('/api/orders', config);
+          const response: AxiosResponse<Order[]> = await axios.get('/api/orders/kitchen', config);
           setOrders(response.data);
           setError('');
         }
@@ -74,7 +73,7 @@ const AdminOrders: React.FC = () => {
         return;
       }
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const newStatus = selectedStatuses.get(orderId) as 'PE' | 'AP' | 'RE' | 'OW' | 'DN' | 'DY' | 'CA';
+      const newStatus = selectedStatuses.get(orderId) as 'AP' | 'RE' | 'CA';
       await axios.put(`/api/orders/${orderId}`, { status: newStatus }, config);
       setOrders(orders.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
       setSelectedStatuses(prev => {
@@ -89,7 +88,7 @@ const AdminOrders: React.FC = () => {
         if (newToken) {
           const config = { headers: { Authorization: `Bearer ${newToken}` } };
           await axios.put(`/api/orders/${orderId}`, { status: selectedStatuses.get(orderId) }, config);
-          setOrders(orders.map(order => order.id === orderId ? { ...order, status: selectedStatuses.get(orderId) as 'PE' | 'AP' | 'RE' | 'OW' | 'DN' | 'DY' | 'CA' } : order));
+          setOrders(orders.map(order => order.id === orderId ? { ...order, status: selectedStatuses.get(orderId) as 'AP' | 'RE' | 'CA' } : order));
           setSelectedStatuses(prev => {
             const newMap = new Map(prev);
             newMap.delete(orderId);
@@ -115,9 +114,6 @@ const AdminOrders: React.FC = () => {
     PE: 'Pending',
     AP: 'Accepted - Preparing',
     RE: 'Ready',
-    OW: 'On The Way',
-    DN: 'Delivered - Not Paid',
-    DY: 'Delivered - Paid',
     CA: 'Cancelled'
   };
 
@@ -125,30 +121,16 @@ const AdminOrders: React.FC = () => {
     PE: 'bg-yellow-100 text-yellow-800',
     AP: 'bg-blue-100 text-blue-800',
     RE: 'bg-green-100 text-green-800',
-    OW: 'bg-purple-100 text-purple-800',
-    DN: 'bg-orange-100 text-orange-800',
-    DY: 'bg-green-600 text-white',
     CA: 'bg-red-100 text-red-800'
   };
 
   const getAllowedStatuses = (currentStatus: string) => {
-    switch (role) {
-      case 'ROLE_A':
-        return ['PE', 'AP', 'RE', 'OW', 'DN', 'DY', 'CA'];
-      case 'ROLE_K':
-        return currentStatus === 'PE' ? ['AP'] : currentStatus === 'AP' ? ['RE', 'CA'] : [];
-      case 'ROLE_D':
-        return currentStatus === 'RE' ? ['OW'] : currentStatus === 'OW' ? ['DY', 'CA'] : [];
-      case 'ROLE_W':
-        return currentStatus === 'PE' ? ['CA'] : currentStatus === 'RE' ? ['DN'] : currentStatus === 'DN' ? ['DY', 'CA'] : [];
-      default:
-        return [];
-    }
+    return currentStatus === 'PE' ? ['AP'] : currentStatus === 'AP' ? ['RE', 'CA'] : [];
   };
 
   return (
     <div className="container mx-auto p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Manage Orders</h2>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">Kitchen Dashboard</h2>
       {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
       {orders.length === 0 && !error && <p className="text-gray-600">No orders found.</p>}
       <div className="grid gap-6">
@@ -223,4 +205,4 @@ const AdminOrders: React.FC = () => {
   );
 };
 
-export default AdminOrders;
+export default KitchenDashboard;
