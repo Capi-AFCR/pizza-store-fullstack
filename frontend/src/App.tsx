@@ -13,6 +13,7 @@ import NavBar from './components/NavBar';
 import OrderForm from './components/OrderForm';
 import OrderHistory from './components/OrderHistory';
 import AdminOrders from './components/AdminOrders';
+import { CartProvider } from './CartContext';
 import { User } from './types';
 import './index.css';
 
@@ -53,7 +54,7 @@ const App: React.FC = () => {
       });
       setToken(response.data.accessToken);
       setRefreshToken(response.data.refreshToken);
-      setRole(response.data.role); // Expecting 'ROLE_A', 'ROLE_C', etc.
+      setRole(response.data.role);
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('role', response.data.role);
@@ -113,71 +114,73 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <NavBar
-        token={token}
-        role={role}
-        setToken={setToken}
-        setRefreshToken={setRefreshToken}
-        setEmail={setEmail}
-        setRole={setRole}
-      />
-      <Routes>
-        <Route path="/login" element={<LoginForm setToken={setToken} setRefreshToken={setRefreshToken} setEmail={setEmail} setRole={setRole} setError={setError} />} />
-        <Route path="/register" element={<RegisterForm setError={setError} />} />
-        <Route path="/forgot-password" element={<ForgotPasswordForm setError={setError} />} />
-        <Route path="/reset-password" element={<ResetPasswordForm setError={setError} />} />
-        <Route
-          path="/admin/users"
-          element={
-            token && role === 'ROLE_A' ? (
-              <div className="container mx-auto p-4 space-y-6">
-                <h1 className="text-2xl font-bold">User Management</h1>
-                {viewingUser ? (
-                  <UserDetails user={viewingUser} setViewingUser={setViewingUser} />
-                ) : (
-                  <>
-                    <UserForm fetchUsers={fetchUsers} token={token} setError={setError} editingUser={editingUser} updateUser={updateUser} />
-                    <UserList users={users} error={error} setEditingUser={setEditingUser} deleteUser={deleteUser} setViewingUser={setViewingUser} />
-                  </>
-                )}
-              </div>
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
+      <CartProvider>
+        <NavBar
+          token={token}
+          role={role}
+          setToken={setToken}
+          setRefreshToken={setRefreshToken}
+          setEmail={setEmail}
+          setRole={setRole}
         />
-        <Route
-          path="/admin/orders"
-          element={
-            token && role === 'ROLE_A' ? (
-              <AdminOrders />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
-          path="/orders"
-          element={
-            token ? (
-              <OrderHistory />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route
-          path="/orders/new"
-          element={
-            token ? (
-              <OrderForm />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route path="/" element={<Home />} />
-      </Routes>
+        <Routes>
+          <Route path="/login" element={<LoginForm setToken={setToken} setRefreshToken={setRefreshToken} setEmail={setEmail} setRole={setRole} setError={setError} />} />
+          <Route path="/register" element={<RegisterForm setError={setError} />} />
+          <Route path="/forgot-password" element={<ForgotPasswordForm setError={setError} />} />
+          <Route path="/reset-password" element={<ResetPasswordForm setError={setError} />} />
+          <Route
+            path="/admin/users"
+            element={
+              token && role === 'ROLE_A' ? (
+                <div className="container mx-auto p-6">
+                  <h1 className="text-3xl font-bold mb-6 text-gray-800">User Management</h1>
+                  {viewingUser ? (
+                    <UserDetails user={viewingUser} setViewingUser={setViewingUser} />
+                  ) : (
+                    <div className="space-y-6">
+                      <UserForm fetchUsers={fetchUsers} token={token} setError={setError} editingUser={editingUser} updateUser={updateUser} />
+                      <UserList users={users} error={error} setEditingUser={setEditingUser} deleteUser={deleteUser} setViewingUser={setViewingUser} />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/admin/orders"
+            element={
+              token && role === 'ROLE_A' ? (
+                <AdminOrders />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              token ? (
+                <OrderHistory />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route
+            path="/orders/new"
+            element={
+              token ? (
+                <OrderForm />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route path="/" element={<Home />} />
+        </Routes>
+      </CartProvider>
     </Router>
   );
 };

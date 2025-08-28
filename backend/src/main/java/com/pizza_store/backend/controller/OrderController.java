@@ -5,6 +5,7 @@ import com.pizza_store.backend.model.OrderItem;
 import com.pizza_store.backend.model.OrderStatus;
 import com.pizza_store.backend.model.Product;
 import com.pizza_store.backend.repository.ProductRepository;
+import com.pizza_store.backend.repository.UserRepository;
 import com.pizza_store.backend.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -27,10 +28,20 @@ public class OrderController {
     @Autowired
     private ProductRepository productRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest) {
         try {
             LOGGER.info("Creating order for user ID: " + orderRequest.getUserId());
+            String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+            Long effectiveUserId = orderRequest.getUserId();
+            if (effectiveUserId == null) {
+                effectiveUserId = userRepository.findByEmail(currentUserEmail)
+                        .map(user -> user.getId())
+                        .orElseThrow(() -> new RuntimeException("User not found: " + currentUserEmail));
+            }
             List<OrderItem> orderItems = orderRequest.getItems().stream()
                     .map(item -> {
                         Product product = productRepository.findById(item.getProductId())
@@ -38,7 +49,7 @@ public class OrderController {
                         return new OrderItem(item.getProductId(), item.getQuantity(), product.getPrice());
                     })
                     .collect(Collectors.toList());
-            Order order = orderService.createOrder(orderRequest.getUserId(), orderItems);
+            Order order = orderService.createOrder(effectiveUserId, orderItems);
             return ResponseEntity.status(201).body(order);
         } catch (Exception e) {
             LOGGER.severe("Failed to create order: " + e.getMessage());
@@ -50,7 +61,9 @@ public class OrderController {
     public ResponseEntity<List<Order>> getUserOrders() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         LOGGER.info("Fetching orders for user: " + email);
-        Long userId = orderService.getUserOrders(0L).isEmpty() ? 1L : 0L; // Mock userId for testing
+        Long userId = userRepository.findByEmail(email)
+                .map(user -> user.getId())
+                .orElseThrow(() -> new RuntimeException("User not found: " + email));
         return ResponseEntity.ok(orderService.getUserOrders(userId));
     }
 

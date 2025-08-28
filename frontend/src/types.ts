@@ -44,9 +44,10 @@ export interface Order {
   userId: number;
   items: OrderItem[];
   totalPrice: number;
-  status: 'PE' | 'AP' | 'OW' | 'DN' | 'DY' | 'CA';
+  status: 'PE' | 'AP' | 'RE' | 'OW' | 'DN' | 'DY' | 'CA';
   createdBy: string;
   modifiedBy: string;
   createdAt: string;
   modifiedAt: string;
 }
+export type { Role };

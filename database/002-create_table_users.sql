@@ -3,7 +3,7 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    role VARCHAR(1) NOT NULL CHECK (role IN ('A', 'D', 'W', 'C')),
+    role VARCHAR(1) NOT NULL CHECK (role IN ('A', 'D', 'W', 'C', 'K')),
     active BOOLEAN NOT NULL,
     refresh_token VARCHAR(255),
     reset_token VARCHAR(255),
