@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { User, Product, CartItem } from '../types';
 import Cart from './Cart';
+import { useCart } from '../contexts/CartContext';
 
 const OrderForm: React.FC = () => {
   const { t } = useTranslation();
@@ -12,6 +13,7 @@ const OrderForm: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [error, setError] = useState<string>('');
+  const { addToCart } = useCart();
   const navigate = useNavigate();
   const role = localStorage.getItem('role') || '';
   const token = localStorage.getItem('accessToken') || '';
@@ -42,14 +44,14 @@ const OrderForm: React.FC = () => {
   const fetchClients = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response: AxiosResponse<User[]> = await axios.get('/api/users?role=C', config);
+      const response: AxiosResponse<User[]> = await axios.get('/api/users/clients', config);
       setClients(response.data);
     } catch (err: any) {
       if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
         const newToken = await refreshAccessToken();
         if (newToken) {
           const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const response: AxiosResponse<User[]> = await axios.get('/api/users?role=C', config);
+          const response: AxiosResponse<User[]> = await axios.get('/api/users/clients', config);
           setClients(response.data);
         }
       } else {
@@ -87,20 +89,25 @@ const OrderForm: React.FC = () => {
   }, [role, token, navigate]);
 
   const handleAddToCart = (product: Product) => {
-    const existingItem = cartItems.find(item => item.id === product.id);
-    if (existingItem) {
-      setCartItems(cartItems.map(item =>
-        item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCartItems([...cartItems, { ...product, quantity: 1 }]);
-    }
-    localStorage.setItem('cart', JSON.stringify(cartItems));
-  };
+      if (product.id !== undefined) {
+        addToCart({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          description: product.description,
+          category: product.category,
+          isActive: product.isActive,
+          imageUrl: product.imageUrl,
+          createdBy: product.createdBy,
+          modifiedBy: product.modifiedBy,
+          createdAt: product.createdAt,
+          modifiedAt: product.modifiedAt,
+          quantity: 1
+        });
+      }
+    };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (cartItems : CartItem[]) => {
     if (!selectedClient) {
       setError(t('order_form.error_client'));
       return;
@@ -205,7 +212,7 @@ const OrderForm: React.FC = () => {
       </div>
       <div className="mt-6">
         <Cart
-          onCheckout={handleSubmit}
+          onCheckout={(cartItems) => handleSubmit(cartItems)}
           disabled={(role === 'ROLE_W' || role === 'ROLE_A') && !selectedClient}
         />
       </div>

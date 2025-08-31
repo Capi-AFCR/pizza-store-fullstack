@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { Client } from '@stomp/stompjs';
+import { Client, Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useTranslation } from 'react-i18next';
-import { CartContext, CartContextType } from '../CartContext';
+import { useCart } from '../contexts/CartContext';
 import { Product, CartItem, Order, OrderStatusUpdate } from '../types';
 import Cart from './Cart';
 
@@ -16,15 +16,10 @@ const ClientDashboard: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<string>('name-asc');
   const [stompClient, setStompClient] = useState<Client | null>(null);
-  const cartContext = useContext(CartContext);
+  const { addToCart } = useCart();
   const navigate = useNavigate();
   const role = localStorage.getItem('role') || '';
   const token = localStorage.getItem('accessToken') || '';
-
-  if (!cartContext) {
-    throw new Error('ClientDashboard must be used within a CartProvider');
-  }
-  const { cart, addToCart } = cartContext as CartContextType;
 
   const categoryMap: { [key: string]: string } = {
     AP: t('category.appetizers'),
@@ -58,7 +53,6 @@ const ClientDashboard: React.FC = () => {
     try {
       const email = localStorage.getItem('email') || '';
       const refreshToken = localStorage.getItem('refreshToken') || '';
-      console.log('Attempting to refresh token for email:', email, 'Role:', role);
       const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/refresh', {
         email,
         refreshToken
@@ -66,11 +60,9 @@ const ClientDashboard: React.FC = () => {
       localStorage.setItem('accessToken', response.data.accessToken);
       localStorage.setItem('refreshToken', response.data.refreshToken);
       localStorage.setItem('role', response.data.role);
-      console.log('Token refreshed successfully:', response.data.accessToken.substring(0, 10) + '...', 'Role:', response.data.role);
       return response.data.accessToken;
     } catch (err: any) {
-      console.error('Token refresh failed:', err.response?.data || err.message, 'Status:', err.response?.status);
-      setError(t('error.token_refresh_failed'));
+      setError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('email');
@@ -82,44 +74,33 @@ const ClientDashboard: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      if (!token) {
-        setError(t('client_dashboard.no_products'));
-        navigate('/login');
-        return;
-      }
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      console.log('Fetching products with token:', token.substring(0, 10) + '...', 'Role:', role);
       const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
       setProducts(response.data);
-      console.log('Products fetched:', response.data.map(p => ({ name: p.name, category: p.category })));
       setError('');
     } catch (err: any) {
-      console.error('Fetch products failed:', err.response?.data || err.message, 'Status:', err.response?.status);
       if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
         const newToken = await refreshAccessToken();
         if (newToken) {
           const config = { headers: { Authorization: `Bearer ${newToken}` } };
           const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
           setProducts(response.data);
-          console.log('Products fetched after refresh:', response.data.map(p => ({ name: p.name, category: p.category })));
           setError('');
         }
       } else {
-        setError(t('client_dashboard.fetch_products_failed') + (err.response?.data || err.message));
+        setError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
+        navigate('/login');
       }
     }
   };
 
   const fetchOrders = async () => {
     try {
-      if (!token || role !== 'ROLE_C') return;
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      console.log('Fetching orders with token:', token.substring(0, 10) + '...');
       const response: AxiosResponse<Order[]> = await axios.get('/api/orders/user', config);
       setOrders(response.data);
       setError('');
     } catch (err: any) {
-      console.error('Fetch orders failed:', err.response?.data || err.message, 'Status:', err.response?.status);
       if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
         const newToken = await refreshAccessToken();
         if (newToken) {
@@ -129,115 +110,110 @@ const ClientDashboard: React.FC = () => {
           setError('');
         }
       } else {
-        setError(t('client_dashboard.fetch_orders_failed') + (err.response?.data || err.message));
+        setError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
+        navigate('/login');
       }
     }
   };
 
-  const setupWebSocket = () => {
-    if (!token || role !== 'ROLE_C') {
-      return () => {};
-    }
-    const client = new Client({
-      webSocketFactory: () => new SockJS('http://localhost:8080/ws/orders'),
-      reconnectDelay: 5000,
-      onConnect: () => {
-        console.log('WebSocket connected');
-        orders.forEach(order => {
-          client.subscribe(`/topic/orders/${order.id}`, (message) => {
-            const update: OrderStatusUpdate = JSON.parse(message.body);
-            console.log('Received order update:', update);
-            setOrders(prev => prev.map(o => o.id === update.orderId ? { ...o, status: update.status, modifiedAt: update.updatedAt } : o));
-          });
-        });
-      },
-      onStompError: (frame) => {
-        console.error('WebSocket error:', frame);
-        setError(t('client_dashboard.websocket_error'));
+  useEffect(() => {
+    const initialize = async () => {
+      if (token && role === 'ROLE_C') {
+        await fetchProducts();
+        await fetchOrders();
+      } else {
+        navigate('/login');
       }
-    });
-    client.activate();
-    setStompClient(client);
-    return () => {
-      client.deactivate();
-      console.log('WebSocket disconnected');
     };
-  };
+    initialize();
+  }, [token, role, navigate]);
 
-  const handleCheckout = async () => {
+  useEffect(() => {
+    const socket = new SockJS('http://localhost:8080/ws/orders/info');
+    const client = Stomp.over(socket);
+    client.connect({}, (frame: any) => {
+      console.log('WebSocket connected:', frame);
+      client.subscribe('/topic/orders', (message) => {
+        console.log('Order update:', JSON.parse(message.body));
+        fetchOrders();
+      });
+    }, (error: unknown) => {
+      console.error('WebSocket error:', error);
+      setError(t('client_dashboard.websocket_error'));
+    });
+    setStompClient(client);
+
+    return () => {
+      if (client.connected) {
+        client.disconnect(() => {
+          console.log('WebSocket disconnected');
+        });
+      }
+    };
+  }, [t]);
+
+  const handleCheckout = async (cartItems : CartItem[]) => {
     try {
       if (!token) {
-        setError(t('client_dashboard.no_products'));
+        setError('Please log in to place an order.');
         navigate('/login');
         return;
       }
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const orderItems = cart.map((item: CartItem) => ({
+      const orderItems = cartItems.map((item: CartItem) => ({
         productId: item.id!,
-        quantity: item.quantity
+        quantity: item.quantity,
+        price: item.price
       }));
       const payload = { items: orderItems };
       console.log('Submitting order with payload:', payload, 'Role:', role, 'Token:', token.substring(0, 10) + '...');
       const response = await axios.post('/api/orders', payload, config);
       console.log('Order created successfully:', response.data);
-      cartContext.clearCart();
       setError('');
-      fetchOrders();
     } catch (err: any) {
       console.error('Checkout failed:', err.response?.data || err.message, 'Status:', err.response?.status, 'Headers:', err.response?.headers);
       if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
         const newToken = await refreshAccessToken();
         if (newToken) {
           const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const orderItems = cart.map((item: CartItem) => ({
+          const orderItems = cartItems.map((item: CartItem) => ({
             productId: item.id!,
-            quantity: item.quantity
+            quantity: item.quantity,
+            price: item.price
           }));
           const payload = { items: orderItems };
           console.log('Retrying order submission with new token:', newToken.substring(0, 10) + '...');
           const response = await axios.post('/api/orders', payload, config);
           console.log('Order created successfully after refresh:', response.data);
-          cartContext.clearCart();
           setError('');
-          fetchOrders();
         }
       } else {
-        setError(t('client_dashboard.checkout_failed') + (err.response?.data || err.message));
+        setError('Failed to place order: ' + (err.response?.data || err.message));
       }
     }
   };
 
   const handleAddToCart = (product: Product) => {
-    if (!product.id) {
-      console.error('Cannot add product to cart: missing id', product);
-      setError(t('client_dashboard.add_to_cart_failed'));
-      return;
+    if (product.id !== undefined) {
+      addToCart({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        description: product.description,
+        category: product.category,
+        isActive: product.isActive,
+        imageUrl: product.imageUrl,
+        createdBy: product.createdBy,
+        modifiedBy: product.modifiedBy,
+        createdAt: product.createdAt,
+        modifiedAt: product.modifiedAt,
+        quantity: 1
+      });
     }
-    console.log('Adding to cart:', product);
-    addToCart(product);
   };
-
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedCategory = e.target.value;
-    console.log('Selected category:', selectedCategory);
-    setCategoryFilter(selectedCategory);
-  };
-
-  useEffect(() => {
-    console.log('Cart state:', cart);
-    fetchProducts();
-    if (role === 'ROLE_C') {
-      fetchOrders();
-      return setupWebSocket();
-    }
-  }, [navigate, role, token, orders.length]);
 
   const filteredProducts = products
-    .filter(product => {
-      const matches = categoryFilter === 'all' || product.category.trim().toUpperCase() === categoryFilter.trim().toUpperCase();
-      console.log(`Filtering product: ${product.name}, category: ${product.category}, filter: ${categoryFilter}, matches: ${matches}`);
-      return matches;
-    })
+    .filter(product => product.id !== undefined && (categoryFilter === 'all' || product.category === categoryFilter))
     .sort((a, b) => {
       if (sortOrder === 'name-asc') return a.name.localeCompare(b.name);
       if (sortOrder === 'name-desc') return b.name.localeCompare(a.name);
@@ -246,47 +222,43 @@ const ClientDashboard: React.FC = () => {
       return 0;
     });
 
-  const categories = Array.from(new Set(products.map(product => product.category.trim().toUpperCase()))).filter(category => category !== 'ALL');
-  categories.unshift('all');
-
   return (
-    <div className="container mx-auto p-6 flex flex-col lg:flex-row gap-6">
-      {/* Product Menu */}
-      <div className="lg:w-3/4">
-        <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('client_dashboard.title')}</h2>
-        {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-        {role === 'ROLE_C' && (
-          <div className="mb-8 bg-white p-6 rounded-lg shadow-md">
-            <h3 className="text-xl font-semibold mb-4">{t('client_dashboard.track_orders')}</h3>
-            {orders.length === 0 && <p className="text-gray-600">{t('client_dashboard.no_orders')}</p>}
-            {orders.map(order => (
-              <div key={order.id} className="mb-4">
-                <p className="text-gray-700 font-semibold">Order #{order.id}</p>
-                <p className="text-gray-600">{t('client_dashboard.order_status', { status: statusMap[order.status] || order.status })}</p>
-                <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-                  <div
-                    className="bg-blue-600 h-2.5 rounded-full"
-                    style={{ width: `${statusProgress[order.status] || 0}%` }}
-                  ></div>
-                </div>
+    <div className="container mx-auto p-6">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('client_dashboard.title')}</h2>
+      {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="lg:w-3/4">
+          <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
+            <h3 className="text-2xl font-semibold mb-4">{t('client_dashboard.track_orders')}</h3>
+            {orders.length === 0 ? (
+              <p className="text-gray-600">{t('client_dashboard.no_orders')}</p>
+            ) : (
+              <div className="grid gap-4">
+                {orders.map(order => (
+                  <div key={order.id} className="border rounded-lg p-4 shadow-md">
+                    <h4 className="text-lg font-semibold">{t('client_dashboard.order_id')} {order.id}</h4>
+                    <p className="text-gray-600">{t('client_dashboard.status')} {statusMap[order.status] || order.status}</p>
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5">
+                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${statusProgress[order.status]}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-        <div className="mb-6">
-          <div className="flex flex-wrap gap-4 mb-4">
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700">{t('client_dashboard.filter_category')}</label>
               <select
                 value={categoryFilter}
-                onChange={handleCategoryChange}
+                onChange={(e) => setCategoryFilter(e.target.value)}
                 className="border p-2 rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
               >
                 <option value="all">{t('category.all')}</option>
-                {categories.map(category => (
-                  category !== 'all' && (
-                    <option key={category} value={category}>{categoryMap[category] || category}</option>
-                  )
+                {Object.keys(categoryMap).map(category => (
+                  <option key={category} value={category}>{categoryMap[category]}</option>
                 ))}
               </select>
             </div>
@@ -308,13 +280,14 @@ const ClientDashboard: React.FC = () => {
             {products.length === 0 && !error && <p className="text-gray-600">{t('client_dashboard.no_products')}</p>}
             {filteredProducts.map(product => (
               <div key={product.id || Math.random()} className="border rounded-lg shadow-md p-6 bg-white hover:shadow-lg transition-shadow duration-200">
-                <img src={product.imageUrl} alt={product.name} className="w-full h-48 object-cover rounded mb-4" />
+                <img src={product.imageUrl || '/placeholder.png'} alt={product.name} className="w-full h-48 object-cover rounded mb-4" />
                 <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
-                <p className="text-gray-600">{product.description}</p>
+                <p className="text-gray-600">{product.description || t('client_dashboard.no_description')}</p>
                 <p className="text-gray-700 font-semibold mt-2">${product.price.toFixed(2)}</p>
                 <button
                   onClick={() => handleAddToCart(product)}
                   className="bg-blue-600 text-white p-2 rounded w-full mt-4 hover:bg-blue-700 transition-colors duration-200"
+                  disabled={product.id === undefined}
                 >
                   {t('client_dashboard.add_to_cart')}
                 </button>
@@ -322,11 +295,9 @@ const ClientDashboard: React.FC = () => {
             ))}
           </div>
         </div>
-      </div>
-
-      {/* Cart Sidebar */}
-      <div className="lg:w-1/4">
-        <Cart onCheckout={handleCheckout} />
+        <div className="lg:w-1/4">
+          <Cart onCheckout={(cartItems) => handleCheckout(cartItems)} />
+        </div>
       </div>
     </div>
   );

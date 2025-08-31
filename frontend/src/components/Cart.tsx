@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCart } from '../contexts/CartContext';
 import { CartItem } from '../types';
 
 interface CartProps {
@@ -9,24 +10,12 @@ interface CartProps {
 
 const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false }) => {
   const { t } = useTranslation();
-  const [cartItems, setCartItems] = useState<CartItem[]>(JSON.parse(localStorage.getItem('cart') || '[]'));
-
-  const handleRemove = (id: number) => {
-    const updatedCart = cartItems.filter(item => item.id !== id);
-    setCartItems(updatedCart);
-    localStorage.setItem('cart', JSON.stringify(updatedCart));
-  };
-
-  const handleClearCart = () => {
-    setCartItems([]);
-    localStorage.setItem('cart', JSON.stringify([]));
-  };
+  const { cartItems, removeFromCart, clearCart } = useCart();
 
   const handleCheckout = () => {
     if (cartItems.length > 0) {
       onCheckout(cartItems);
-      setCartItems([]);
-      localStorage.setItem('cart', JSON.stringify([]));
+      clearCart();
     }
   };
 
@@ -48,7 +37,7 @@ const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false }) => {
                   <p className="text-gray-600">{t('cart.unit_price')}: ${item.price.toFixed(2)}</p>
                 </div>
                 <button
-                  onClick={() => handleRemove(item.id!)} // Use non-null assertion as cart items should have valid IDs
+                  onClick={() => removeFromCart(item.id!)} // Use non-null assertion as cart items should have valid IDs
                   className="bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
                 >
                   {t('cart.remove')}
@@ -67,7 +56,7 @@ const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false }) => {
                 {t('cart.checkout')}
               </button>
               <button
-                onClick={handleClearCart}
+                onClick={clearCart}
                 className="bg-gray-500 text-white p-2 rounded w-full hover:bg-gray-600 transition-colors duration-200"
               >
                 {t('cart.clear')}

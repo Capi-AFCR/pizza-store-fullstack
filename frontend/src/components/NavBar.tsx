@@ -1,20 +1,21 @@
-import React, { Dispatch, SetStateAction } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { changeLanguage } from '../i18n';
+import i18next from '../i18n';
 
 interface NavBarProps {
   token: string;
   role: string;
-  setToken: Dispatch<SetStateAction<string>>;
-  setRefreshToken: Dispatch<SetStateAction<string>>;
-  setEmail: Dispatch<SetStateAction<string>>;
-  setRole: Dispatch<SetStateAction<string>>;
+  setToken: (token: string) => void;
+  setRefreshToken: (refreshToken: string) => void;
+  setEmail: (email: string) => void;
+  setRole: (role: string) => void;
 }
 
 const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken, setEmail, setRole }) => {
-  const { t } = useTranslation();
+  const { t, i18n, ready } = useTranslation();
   const navigate = useNavigate();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => {
     setToken('');
@@ -28,7 +29,20 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
     navigate('/login');
   };
 
+  const handleLanguageChange = async (lang: string) => {
+    try {
+      await i18next.changeLanguage(lang);
+      localStorage.setItem('language', lang);
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error('Failed to change language:', error);
+    }
+  };
+
   const getHomePath = () => {
+    if (!token) {
+      return '/login';
+    }
     switch (role) {
       case 'ROLE_A':
         return '/admin';
@@ -44,102 +58,171 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
     }
   };
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    changeLanguage(e.target.value);
-  };
+  if (!ready) {
+    return <div className="bg-gradient-to-r from-blue-700 to-blue-900 text-white p-4 text-center">Loading...</div>;
+  }
 
   return (
-    <nav className="bg-blue-600 text-white p-4 shadow-md">
-      <div className="container mx-auto flex justify-between items-center">
-        <Link to={getHomePath()} className="text-2xl font-bold">{t('navbar.title')}</Link>
-        <div className="flex space-x-4 items-center">
-          {token ? (
+    <nav className="bg-gradient-to-r from-blue-700 to-blue-900 sticky top-0 z-50 shadow-lg">
+      <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+        {/* Brand Logo */}
+        <Link
+          to={getHomePath()}
+          className="text-white text-2xl font-semibold tracking-tight hover:text-blue-200 transition-colors duration-300"
+        >
+          {t('navbar.title')}
+        </Link>
+
+        {/* Hamburger Menu Button (Mobile) */}
+        <button
+          className="md:hidden text-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+        >
+          <svg
+            className="w-8 h-8"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d={isMenuOpen ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'}
+            />
+          </svg>
+        </button>
+
+        {/* Navigation Links */}
+        <div
+          className={`${
+            isMenuOpen ? 'flex' : 'hidden'
+          } md:flex flex-col md:flex-row md:items-center md:space-x-6 absolute md:static top-16 left-0 w-full md:w-auto bg-blue-800 md:bg-transparent p-4 md:p-0 shadow-md md:shadow-none transition-all duration-300 ease-in-out`}
+        >
+          {token && role === 'ROLE_A' && (
             <>
-              {role === 'ROLE_A' && (
-                <>
-                  <Link
-                    to="/admin/users"
-                    className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    {t('navbar.manage_users')}
-                  </Link>
-                  <Link
-                    to="/admin/products"
-                    className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    {t('navbar.manage_products')}
-                  </Link>
-                  <Link
-                    to="/admin/orders"
-                    className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    {t('navbar.manage_orders')}
-                  </Link>
-                </>
-              )}
-              {role === 'ROLE_K' && (
-                <Link
-                  to="/kitchen"
-                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  {t('navbar.kitchen')}
-                </Link>
-              )}
-              {role === 'ROLE_D' && (
-                <Link
-                  to="/delivery"
-                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  {t('navbar.delivery')}
-                </Link>
-              )}
-              {role === 'ROLE_W' && (
-                <Link
-                  to="/waiter"
-                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  {t('navbar.waiter')}
-                </Link>
-              )}
-              {(role === 'ROLE_C') && (
-                <Link
-                  to="/orders"
-                  className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
-                >
-                  {t('navbar.orders')}
-                </Link>
-              )}
-              <button
-                onClick={handleLogout}
-                className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+              <Link
+                to="/admin/users"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
               >
-                {t('navbar.logout')}
-              </button>
+                {t('navbar.manage_users')}
+              </Link>
+              <Link
+                to="/admin/products"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('navbar.manage_products')}
+              </Link>
+              <Link
+                to="/admin/orders"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('navbar.manage_orders')}
+              </Link>
+              <Link
+                to="/orders/new"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('order_form.title')}
+              </Link>
             </>
+          )}
+          {token && role === 'ROLE_K' && (
+            <Link
+              to="/kitchen"
+              className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {t('navbar.kitchen')}
+            </Link>
+          )}
+          {token && role === 'ROLE_D' && (
+            <Link
+              to="/delivery"
+              className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              {t('navbar.delivery')}
+            </Link>
+          )}
+          {token && role === 'ROLE_W' && (
+            <>
+              <Link
+                to="/waiter"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('navbar.waiter')}
+              </Link>
+              <Link
+                to="/orders/new"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('order_form.title')}
+              </Link>
+            </>
+          )}
+          {token && role === 'ROLE_C' && (
+            <>
+              <Link
+                to="/orders"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('navbar.orders')}
+              </Link>
+              <Link
+                to="/cart"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                {t('cart.title')}
+              </Link>
+            </>
+          )}
+          {token ? (
+            <button
+              onClick={() => {
+                handleLogout();
+                setIsMenuOpen(false);
+              }}
+              className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+            >
+              {t('navbar.logout')}
+            </button>
           ) : (
             <>
               <Link
                 to="/login"
-                className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
               >
                 {t('navbar.login')}
               </Link>
               <Link
                 to="/register"
-                className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+                onClick={() => setIsMenuOpen(false)}
               >
                 {t('navbar.register')}
               </Link>
             </>
           )}
           <select
-            onChange={handleLanguageChange}
-            className="border p-2 rounded bg-blue-700 text-white hover:bg-blue-800 transition-colors duration-200"
-            defaultValue={localStorage.getItem('language') || 'en'}
+            onChange={(e) => handleLanguageChange(e.target.value)}
+            value={i18n.language}
+            className="border p-2 rounded text-base bg-blue-600 text-white focus:ring-2 focus:ring-blue-300 mt-2 md:mt-0"
           >
-            <option value="en">{t('navbar.language_en', 'English')}</option>
-            <option value="es">{t('navbar.language_es', 'Español')}</option>
-            <option value="fr">{t('navbar.language_fr', 'Français')}</option>
+            <option value="en">{t('navbar.language_en')}</option>
+            <option value="es">{t('navbar.language_es')}</option>
+            <option value="fr">{t('navbar.language_fr')}</option>
           </select>
         </div>
       </div>

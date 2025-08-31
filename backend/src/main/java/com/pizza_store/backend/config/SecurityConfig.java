@@ -35,8 +35,10 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/refresh", "/api/translations").permitAll()
+                        .requestMatchers("/ws/orders/info").permitAll()
                         .requestMatchers("/api/users").hasAuthority("ROLE_A")
                         .requestMatchers("/api/users/clients").hasAnyAuthority("ROLE_A", "ROLE_W")
+                        .requestMatchers("/api/users/email/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/products").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/products/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/orders/user").authenticated()
