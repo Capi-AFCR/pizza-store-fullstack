@@ -1,6 +1,7 @@
 import React, { useState, Dispatch, SetStateAction } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface LoginFormProps {
   setToken: Dispatch<SetStateAction<string>>;
@@ -11,8 +12,10 @@ interface LoginFormProps {
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEmail, setRole, setError }) => {
+  const { t } = useTranslation();
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [localError, setLocalError] = useState<string>('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +34,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
       localStorage.setItem('email', username);
       localStorage.setItem('role', response.data.role);
       setError('');
-      // Redirect to role-specific dashboard
+      setLocalError('');
       switch (response.data.role) {
         case 'ROLE_A':
           navigate('/admin');
@@ -52,16 +55,19 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
           navigate('/login');
       }
     } catch (err: any) {
-      setError('Login failed: ' + (err.response?.data || err.message));
+      const errorMessage = t('login_form.error') + ' ' + (err.response?.data || err.message);
+      setError(errorMessage);
+      setLocalError(errorMessage);
     }
   };
 
   return (
     <div className="container mx-auto p-6 max-w-md">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Login</h2>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('login_form.title')}</h2>
+      {localError && <p className="text-red-500 mb-4 font-semibold">{localError}</p>}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
+          <label className="block text-sm font-medium text-gray-700">{t('login_form.email')}</label>
           <input
             type="email"
             value={username}
@@ -71,7 +77,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Password</label>
+          <label className="block text-sm font-medium text-gray-700">{t('login_form.password')}</label>
           <input
             type="password"
             value={password}
@@ -84,21 +90,15 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
           type="submit"
           className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
         >
-          Login
+          {t('login_form.submit')}
         </button>
       </form>
       <div className="mt-4 text-center">
         <p className="text-gray-600">
-          Don't have an account?{' '}
-          <a href="/register" className="text-blue-600 hover:underline">
-            Register
-          </a>
+          {t('login_form.no_account')} <a href="/register" className="text-blue-600 hover:underline">{t('login_form.register')}</a>
         </p>
         <p className="text-gray-600">
-          Forgot your password?{' '}
-          <a href="/forgot-password" className="text-blue-600 hover:underline">
-            Reset Password
-          </a>
+          {t('login_form.forgot_password')} <a href="/forgot-password" className="text-blue-600 hover:underline">{t('login_form.reset_password')}</a>
         </p>
       </div>
     </div>

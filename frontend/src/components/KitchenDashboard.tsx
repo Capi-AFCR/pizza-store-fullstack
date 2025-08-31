@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Order } from '../types';
 
 const KitchenDashboard: React.FC = () => {
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [error, setError] = useState<string>('');
   const [selectedStatuses, setSelectedStatuses] = useState<Map<number, string>>(new Map());
@@ -22,7 +24,7 @@ const KitchenDashboard: React.FC = () => {
       localStorage.setItem('role', response.data.role);
       return response.data.accessToken;
     } catch (err: any) {
-      setError('Failed to refresh token. Please log in again.');
+      setError(t('kitchen_dashboard.error_token'));
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('email');
@@ -36,7 +38,7 @@ const KitchenDashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        setError('Please log in to view kitchen orders.');
+        setError(t('kitchen_dashboard.error_login'));
         navigate('/login');
         return;
       }
@@ -54,7 +56,7 @@ const KitchenDashboard: React.FC = () => {
           setError('');
         }
       } else {
-        setError('Failed to fetch orders: ' + (err.response?.data || err.message));
+        setError(t('kitchen_dashboard.error_fetch') + ' ' + (err.response?.data || err.message));
         navigate('/login');
       }
     }
@@ -68,7 +70,7 @@ const KitchenDashboard: React.FC = () => {
     try {
       const token = localStorage.getItem('accessToken');
       if (!token) {
-        setError('Please log in to update orders.');
+        setError(t('kitchen_dashboard.error_login'));
         navigate('/login');
         return;
       }
@@ -97,7 +99,7 @@ const KitchenDashboard: React.FC = () => {
           setError('');
         }
       } else {
-        setError('Failed to update order status: ' + (err.response?.data || err.message));
+        setError(t('kitchen_dashboard.error_update') + ' ' + (err.response?.data || err.message));
       }
     }
   };
@@ -111,10 +113,10 @@ const KitchenDashboard: React.FC = () => {
   };
 
   const statusNames: { [key: string]: string } = {
-    PE: 'Pending',
-    AP: 'Accepted - Preparing',
-    RE: 'Ready',
-    CA: 'Cancelled'
+    PE: t('kitchen_dashboard.status_pe', 'Pending'),
+    AP: t('kitchen_dashboard.status_ap', 'Accepted - Preparing'),
+    RE: t('kitchen_dashboard.status_re', 'Ready'),
+    CA: t('kitchen_dashboard.status_ca', 'Cancelled')
   };
 
   const statusStyles: { [key: string]: string } = {
@@ -130,41 +132,41 @@ const KitchenDashboard: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Kitchen Dashboard</h2>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('kitchen_dashboard.title')}</h2>
       {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-      {orders.length === 0 && !error && <p className="text-gray-600">No orders found.</p>}
+      {orders.length === 0 && !error && <p className="text-gray-600">{t('kitchen_dashboard.no_orders')}</p>}
       <div className="grid gap-6">
         {orders.map(order => (
           <div key={order.id || Math.random()} className="border rounded-lg shadow-md p-6 bg-white hover:shadow-lg transition-shadow duration-200">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Order #{order.id || 'New'}</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{t('kitchen_dashboard.order_id')} {order.id || t('kitchen_dashboard.new_order', 'New')}</h3>
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${statusStyles[order.status]}`}>
                 {statusNames[order.status] || order.status}
               </span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
-                <p className="text-gray-700"><strong>User ID:</strong> {order.userId}</p>
-                <p className="text-gray-700"><strong>Total Price:</strong> ${order.totalPrice.toFixed(2)}</p>
-                <p className="text-gray-700"><strong>Created At:</strong> {new Date(order.createdAt).toLocaleString()}</p>
-                <p className="text-sm text-gray-500"><strong>Created By:</strong> {order.createdBy}</p>
-                <p className="text-sm text-gray-500"><strong>Last Modified By:</strong> {order.modifiedBy}</p>
+                <p className="text-gray-700"><strong>{t('kitchen_dashboard.user_id')}:</strong> {order.userId}</p>
+                <p className="text-gray-700"><strong>{t('kitchen_dashboard.total')}:</strong> ${order.totalPrice.toFixed(2)}</p>
+                <p className="text-gray-700"><strong>{t('kitchen_dashboard.created_at')}:</strong> {new Date(order.createdAt).toLocaleString()}</p>
+                <p className="text-sm text-gray-500"><strong>{t('kitchen_dashboard.created_by')}:</strong> {order.createdBy}</p>
+                <p className="text-sm text-gray-500"><strong>{t('kitchen_dashboard.modified_by')}:</strong> {order.modifiedBy}</p>
               </div>
               <div>
-                <p className="text-gray-700 font-semibold mb-2">Items:</p>
+                <p className="text-gray-700 font-semibold mb-2">{t('kitchen_dashboard.items')}:</p>
                 <ul className="list-disc pl-5">
                   {order.items.map(item => (
                     <li key={item.productId} className="text-gray-600">
-                      Product ID: {item.productId}, Qty: {item.quantity}, Unit Price: ${item.price.toFixed(2)}
+                      {t('kitchen_dashboard.product_id')}: {item.productId}, {t('kitchen_dashboard.quantity')}: {item.quantity}, {t('kitchen_dashboard.unit_price')}: ${item.price.toFixed(2)}
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
             <div className="mt-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Update Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{t('kitchen_dashboard.update_status')}</label>
               {order.status === 'DY' || order.status === 'CA' ? (
-                <p className="text-gray-500 text-sm">Status cannot be changed (order is {statusNames[order.status]})</p>
+                <p className="text-gray-500 text-sm">{t('kitchen_dashboard.status_locked', { status: statusNames[order.status] })}</p>
               ) : (
                 <div className="relative group">
                   <div className="flex flex-wrap gap-4 mb-4">
@@ -188,11 +190,11 @@ const KitchenDashboard: React.FC = () => {
                     className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     disabled={order.id === undefined || !selectedStatuses.get(order.id) || selectedStatuses.get(order.id) === order.status}
                   >
-                    Update Status
+                    {t('kitchen_dashboard.update_status')}
                   </button>
                   {(order.id === undefined || getAllowedStatuses(order.status).length === 0) && (
                     <div className="absolute hidden group-hover:block bg-gray-800 text-white text-xs rounded p-2 mt-2">
-                      {order.id === undefined ? 'Order ID not available' : 'No valid status transitions for your role'}
+                      {order.id === undefined ? t('kitchen_dashboard.error_no_id') : t('kitchen_dashboard.error_no_transitions')}
                     </div>
                   )}
                 </div>

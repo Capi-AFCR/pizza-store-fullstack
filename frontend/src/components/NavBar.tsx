@@ -1,5 +1,7 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { changeLanguage } from '../i18n';
 
 interface NavBarProps {
   token: string;
@@ -11,6 +13,7 @@ interface NavBarProps {
 }
 
 const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken, setEmail, setRole }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -25,7 +28,6 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
     navigate('/login');
   };
 
-  // Determine redirect path based on role
   const getHomePath = () => {
     switch (role) {
       case 'ROLE_A':
@@ -42,11 +44,15 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
     }
   };
 
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    changeLanguage(e.target.value);
+  };
+
   return (
     <nav className="bg-blue-600 text-white p-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
-        <Link to={getHomePath()} className="text-2xl font-bold">Pizza Store</Link>
-        <div className="flex space-x-4">
+        <Link to={getHomePath()} className="text-2xl font-bold">{t('navbar.title')}</Link>
+        <div className="flex space-x-4 items-center">
           {token ? (
             <>
               {role === 'ROLE_A' && (
@@ -55,19 +61,19 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                     to="/admin/users"
                     className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                   >
-                    Manage Users
+                    {t('navbar.manage_users')}
                   </Link>
                   <Link
                     to="/admin/products"
                     className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                   >
-                    Manage Products
+                    {t('navbar.manage_products')}
                   </Link>
                   <Link
                     to="/admin/orders"
                     className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                   >
-                    Manage Orders
+                    {t('navbar.manage_orders')}
                   </Link>
                 </>
               )}
@@ -76,7 +82,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                   to="/kitchen"
                   className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                 >
-                  Kitchen
+                  {t('navbar.kitchen')}
                 </Link>
               )}
               {role === 'ROLE_D' && (
@@ -84,7 +90,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                   to="/delivery"
                   className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                 >
-                  Delivery
+                  {t('navbar.delivery')}
                 </Link>
               )}
               {role === 'ROLE_W' && (
@@ -92,7 +98,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                   to="/waiter"
                   className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                 >
-                  Waiter
+                  {t('navbar.waiter')}
                 </Link>
               )}
               {(role === 'ROLE_C') && (
@@ -100,14 +106,14 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                   to="/orders"
                   className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
                 >
-                  Orders
+                  {t('navbar.orders')}
                 </Link>
               )}
               <button
                 onClick={handleLogout}
                 className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
               >
-                Logout
+                {t('navbar.logout')}
               </button>
             </>
           ) : (
@@ -116,16 +122,25 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                 to="/login"
                 className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
               >
-                Login
+                {t('navbar.login')}
               </Link>
               <Link
                 to="/register"
                 className="px-3 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
               >
-                Register
+                {t('navbar.register')}
               </Link>
             </>
           )}
+          <select
+            onChange={handleLanguageChange}
+            className="border p-2 rounded bg-blue-700 text-white hover:bg-blue-800 transition-colors duration-200"
+            defaultValue={localStorage.getItem('language') || 'en'}
+          >
+            <option value="en">{t('navbar.language_en', 'English')}</option>
+            <option value="es">{t('navbar.language_es', 'Español')}</option>
+            <option value="fr">{t('navbar.language_fr', 'Français')}</option>
+          </select>
         </div>
       </div>
     </nav>

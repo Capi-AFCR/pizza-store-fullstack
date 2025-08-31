@@ -1,5 +1,6 @@
 import { Role } from './Role';
 
+// Note: CartItem extends Product, so use 'id' instead of 'productId' for product identifier
 export interface User {
   id?: number;
   name: string;
@@ -54,4 +55,18 @@ export interface Order {
   createdAt: string;
   modifiedAt: string;
 }
+
+export interface OrderStatusUpdate {
+  orderId: number;
+  status: 'PE' | 'AP' | 'RE' | 'OW' | 'DN' | 'DY' | 'CA';
+  updatedAt: string;
+}
+
+export interface Translation {
+  id: number;
+  key: string;
+  language: string;
+  value: string;
+}
+
 export type { Role };
