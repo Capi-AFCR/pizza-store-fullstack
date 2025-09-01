@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, Dispatch, SetStateAction } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios, { AxiosResponse } from 'axios';
 import NavBar from './components/NavBar';
@@ -21,7 +21,6 @@ import UserDetails from './components/UserDetails';
 import Cart from './components/Cart';
 import { useTranslation } from 'react-i18next';
 import { CartItem, User } from './types';
-import { CartProvider } from './contexts/CartContext';
 import './index.css';
 
 const App: React.FC = () => {
@@ -31,6 +30,7 @@ const App: React.FC = () => {
   const [role, setRole] = useState<string>(localStorage.getItem('role') || '');
   const [error, setError] = useState<string>('');
   const [userId, setUserId] = useState<number | null>(null);
+  const [cartItems, setCartItems] = useState<CartItem[]>(JSON.parse(localStorage.getItem('cart') || '[]'));
   const { ready } = useTranslation();
 
   useEffect(() => {
@@ -110,6 +110,7 @@ const App: React.FC = () => {
       case 'ROLE_W':
         return '/waiter';
       case 'ROLE_C':
+        return '/client';
       default:
         return '/';
     }
@@ -132,41 +133,39 @@ const App: React.FC = () => {
         />
         <div className="container mx-auto p-6">
           {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-          <CartProvider>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  token ? (
-                    role === 'ROLE_C' ? (
-                      <ClientDashboard />
-                    ) : (
-                      <Navigate to={getHomePath()} />
-                    )
+          <Routes>
+            <Route
+              path="/"
+              element={
+                token ? (
+                  role === 'ROLE_C' ? (
+                    <ClientDashboard token={token} email={email} cartItems={cartItems} setCartItems={setCartItems} setToken={setToken} setRole={setRole} setError={setError}/>
                   ) : (
-                    <Navigate to="/login" />
+                    <Navigate to={getHomePath()} />
                   )
-                }
-              />
-              <Route path="/client" element={<Navigate to="/" />} />
-              <Route path="/cart" element={token && role === 'ROLE_C' ? <Cart onCheckout={handleCheckout} /> : <Navigate to="/login" />} />
-              <Route path="/orders/new" element={token && (role === 'ROLE_A' || role === 'ROLE_W') ? <OrderForm /> : <Navigate to="/login" />} />
-              <Route path="/orders" element={token && role === 'ROLE_C' ? <OrderHistory /> : <Navigate to="/login" />} />
-              <Route path="/login" element={<LoginForm setToken={setToken} setRefreshToken={setRefreshToken} setEmail={setEmail} setRole={setRole} setError={setError} />} />
-              <Route path="/register" element={<RegisterForm setError={setError} />} />
-              <Route path="/forgot-password" element={<ForgotPasswordForm setError={setError} />} />
-              <Route path="/reset-password" element={<ResetPasswordForm />} />
-              <Route path="/admin" element={token && role === 'ROLE_A' ? <AdminDashboard /> : <Navigate to="/login" />} />
-              <Route path="/admin/users" element={token && role === 'ROLE_A' ? <UserList /> : <Navigate to="/login" />} />
-              <Route path="/admin/users/new" element={token && role === 'ROLE_A' ? <UserForm /> : <Navigate to="/login" />} />
-              <Route path="/admin/users/:id" element={token && role === 'ROLE_A' ? <UserDetails /> : <Navigate to="/login" />} />
-              <Route path="/admin/orders" element={token && role === 'ROLE_A' ? <AdminOrders /> : <Navigate to="/login" />} />
-              <Route path="/admin/products" element={token && role === 'ROLE_A' ? <ProductManagement /> : <Navigate to="/login" />} />
-              <Route path="/kitchen" element={token && role === 'ROLE_K' ? <KitchenDashboard /> : <Navigate to="/login" />} />
-              <Route path="/delivery" element={token && role === 'ROLE_D' ? <DeliveryDashboard /> : <Navigate to="/login" />} />
-              <Route path="/waiter" element={token && role === 'ROLE_W' ? <WaiterDashboard /> : <Navigate to="/login" />} />
-            </Routes>
-          </CartProvider>
+                ) : (
+                  <Navigate to="/login" />
+                )
+              }
+            />
+            <Route path="/login" element={<LoginForm setToken={setToken} setRefreshToken={setRefreshToken} setEmail={setEmail} setRole={setRole} setError={setError} />} />
+            <Route path="/register" element={<RegisterForm setError={setError} />} />
+            <Route path="/forgot-password" element={<ForgotPasswordForm setError={setError} />} />
+            <Route path="/reset-password" element={<ResetPasswordForm setError={setError} />} />
+            <Route path="/admin" element={token && role === 'ROLE_A' ? <AdminDashboard /> : <Navigate to="/login" />} />
+            <Route path="/admin/users" element={token && role === 'ROLE_A' ? <UserList /> : <Navigate to="/login" />} />
+            <Route path="/admin/users/new" element={token && role === 'ROLE_A' ? <UserForm /> : <Navigate to="/login" />} />
+            <Route path="/admin/users/:id" element={token && role === 'ROLE_A' ? <UserDetails /> : <Navigate to="/login" />} />
+            <Route path="/admin/orders" element={token && role === 'ROLE_A' ? <AdminOrders /> : <Navigate to="/login" />} />
+            <Route path="/admin/products" element={token && role === 'ROLE_A' ? <ProductManagement /> : <Navigate to="/login" />} />
+            <Route path="/client" element={token && role === 'ROLE_C' ? <ClientDashboard token={token} email={email} cartItems={cartItems} setCartItems={setCartItems} setToken={setToken} setRole={setRole} setError={setError} /> : <Navigate to="/login" />} />
+            <Route path="/kitchen" element={token && role === 'ROLE_K' ? <KitchenDashboard /> : <Navigate to="/login" />} />
+            <Route path="/delivery" element={token && role === 'ROLE_D' ? <DeliveryDashboard /> : <Navigate to="/login" />} />
+            <Route path="/waiter" element={token && role === 'ROLE_W' ? <WaiterDashboard /> : <Navigate to="/login" />} />
+            <Route path="/cart" element={token && role === 'ROLE_C' ? <Cart onCheckout={handleCheckout} token={token} cartItems={cartItems} setCartItems={setCartItems} /> : <Navigate to="/login" />} />
+            <Route path="/orders/new" element={token && (role === 'ROLE_A' || role === 'ROLE_W') ? <OrderForm /> : <Navigate to="/login" />} />
+            <Route path="/orders" element={token && role === 'ROLE_C' ? <OrderHistory /> : <Navigate to="/login" />} />
+          </Routes>
         </div>
       </Suspense>
     </Router>

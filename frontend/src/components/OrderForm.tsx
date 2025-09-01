@@ -86,7 +86,7 @@ const OrderForm: React.FC = () => {
     } else {
       navigate('/login');
     }
-  }, [role, token, navigate]);
+  }, [role, token, navigate, fetchClients, fetchProducts]);
 
   const handleAddToCart = (product: Product) => {
       if (product.id !== undefined) {
@@ -214,6 +214,9 @@ const OrderForm: React.FC = () => {
         <Cart
           onCheckout={(cartItems) => handleSubmit(cartItems)}
           disabled={(role === 'ROLE_W' || role === 'ROLE_A') && !selectedClient}
+          token={token}
+          cartItems={cartItems} 
+          setCartItems={setCartItems}
         />
       </div>
     </div>

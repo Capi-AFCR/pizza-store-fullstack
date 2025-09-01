@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import axios, { AxiosResponse } from 'axios';
+import React, { Dispatch, SetStateAction, useState } from 'react';
+import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 
-const ResetPasswordForm: React.FC = () => {
+interface ResetPasswordFormProps {
+  setError: Dispatch<SetStateAction<string>>;
+}
+
+const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({ setError }) => {
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [error, setError] = useState<string>('');
+  const [localError, setLocalError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
 
   const token = searchParams.get('token') || '';
@@ -17,22 +21,25 @@ const ResetPasswordForm: React.FC = () => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError(t('reset_password_form.error_mismatch'));
+      setLocalError(t('reset_password_form.error_mismatch'));
       return;
     }
     try {
-      const response: AxiosResponse<string> = await axios.post('/api/auth/reset-password', { token, password });
+      await axios.post('/api/auth/reset-password', { token, password });
       setMessage(t('reset_password_form.success'));
       setError('');
+      setLocalError('');
     } catch (err: any) {
-      setError(t('reset_password_form.error') + ' ' + (err.response?.data || err.message));
-      setMessage('');
+      const errorMessage = t('reset_password_form.error') + ' ' + (err.response?.data || err.message);
+      setError(errorMessage);
+      setLocalError(errorMessage);
     }
   };
 
   return (
     <div className="container mx-auto p-6 max-w-md">
       <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('reset_password_form.title')}</h2>
-      {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
+      {localError && <p className="text-red-500 mb-4 font-semibold">{localError}</p>}
       {message && <p className="text-green-500 mb-4 font-semibold">{message}</p>}
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
         <div className="mb-4">

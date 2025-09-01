@@ -8,6 +8,7 @@ export interface User {
   password?: string;
   role: Role;
   active: boolean;
+  loyaltyPoints?: number;
   createdBy?: string;
   modifiedBy?: string;
   createdAt?: string;

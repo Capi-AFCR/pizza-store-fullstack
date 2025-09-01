@@ -1,304 +1,416 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, SetStateAction } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Client, Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useTranslation } from 'react-i18next';
-import { useCart } from '../contexts/CartContext';
-import { Product, CartItem, Order, OrderStatusUpdate } from '../types';
+import { Product, CartItem, Order } from '../types';
 import Cart from './Cart';
 
-const ClientDashboard: React.FC = () => {
+interface ClientDashboardProps {
+  token: string;
+  email: string;
+  cartItems: CartItem[];
+  setCartItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
+  setToken: (token: string) => void;
+  setRole: (role: string) => void;
+  setError: (error: string) => void;
+}
+
+const ClientDashboard: React.FC<ClientDashboardProps> = ({ token, email, cartItems, setCartItems, setToken, setRole, setError }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [error, setError] = useState<string>('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [sortOrder, setSortOrder] = useState<string>('name-asc');
+  const [category, setCategory] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('name_asc');
+  const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
+  const [localError, setLocalError] = useState<string>('');
   const [stompClient, setStompClient] = useState<Client | null>(null);
-  const { addToCart } = useCart();
-  const navigate = useNavigate();
-  const role = localStorage.getItem('role') || '';
-  const token = localStorage.getItem('accessToken') || '';
+  const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const role = localStorage.getItem('role') as string || '';
 
-  const categoryMap: { [key: string]: string } = {
-    AP: t('category.appetizers'),
-    MC: t('category.main_courses'),
-    SD: t('category.sides'),
-    DR: t('category.drinks'),
-    DE: t('category.desserts')
-  };
-
-  const statusMap: { [key: string]: string } = {
-    PE: t('status.pending'),
-    AP: t('status.preparing'),
-    RE: t('status.ready'),
-    OW: t('status.on_the_way'),
-    DN: t('status.delivered'),
-    DY: t('status.delayed'),
-    CA: t('status.cancelled')
-  };
-
-  const statusProgress: { [key: string]: number } = {
-    PE: 20,
-    AP: 40,
-    RE: 60,
-    OW: 80,
-    DN: 100,
-    DY: 50,
-    CA: 0
-  };
-
-  const refreshAccessToken = async () => {
-    try {
-      const email = localStorage.getItem('email') || '';
-      const refreshToken = localStorage.getItem('refreshToken') || '';
-      const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/refresh', {
-        email,
-        refreshToken
-      });
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
-      localStorage.setItem('role', response.data.role);
-      return response.data.accessToken;
-    } catch (err: any) {
-      setError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
+  const refreshAccessToken = async (): Promise<string> => {
+    const storedEmail = localStorage.getItem('email');
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    if (!storedEmail || !storedRefreshToken) {
+      const errorMsg = t('client_dashboard.error') + ' Missing email or refresh token';
+      setError(errorMsg);
+      setLocalError(errorMsg);
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('email');
       localStorage.removeItem('role');
+      setToken('');
+      setRole('');
       navigate('/login');
-      return null;
+      throw new Error(errorMsg);
+    }
+
+    try {
+      const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/refresh', {
+        email: storedEmail,
+        refreshToken: storedRefreshToken
+      });
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('role', response.data.role);
+      setToken(response.data.accessToken);
+      setRole(response.data.role);
+      return response.data.accessToken;
+    } catch (err: any) {
+      const errorMsg = t('client_dashboard.error') + ' ' + (err.response?.data || err.message);
+      setError(errorMsg);
+      setLocalError(errorMsg);
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('email');
+      localStorage.removeItem('role');
+      setToken('');
+      setRole('');
+      navigate('/login');
+      throw new Error(errorMsg);
     }
   };
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (currentToken: string) => {
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const config = { headers: { Authorization: `Bearer ${currentToken}` } };
       const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
       setProducts(response.data);
       setError('');
+      setLocalError('');
     } catch (err: any) {
       if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
         const newToken = await refreshAccessToken();
-        if (newToken) {
-          const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
-          setProducts(response.data);
-          setError('');
-        }
+        const config = { headers: { Authorization: `Bearer ${newToken}` } };
+        const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
+        setProducts(response.data);
+        setError('');
+        setLocalError('');
       } else {
-        setError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
+        const errorMessage = t('client_dashboard.error') + ' ' + (err.response?.data || err.message);
+        setError(errorMessage);
+        setLocalError(errorMessage);
         navigate('/login');
       }
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (currentToken: string) => {
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const config = { headers: { Authorization: `Bearer ${currentToken}` } };
       const response: AxiosResponse<Order[]> = await axios.get('/api/orders/user', config);
       setOrders(response.data);
-      setError('');
+      setLocalError('');
     } catch (err: any) {
       if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
         const newToken = await refreshAccessToken();
-        if (newToken) {
-          const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const response: AxiosResponse<Order[]> = await axios.get('/api/orders/user', config);
-          setOrders(response.data);
-          setError('');
-        }
+        const config = { headers: { Authorization: `Bearer ${newToken}` } };
+        const response: AxiosResponse<Order[]> = await axios.get('/api/orders/user', config);
+        setOrders(response.data);
+        setError('');
+        setLocalError('');
       } else {
-        setError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
+        const errorMessage = t('client_dashboard.error') + ' ' + (err.response?.data || err.message);
+        setError(errorMessage);
+        setLocalError(errorMessage);
         navigate('/login');
       }
     }
   };
+
+  const fetchPoints = async (currentToken: string) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${currentToken}` } };
+      const response: AxiosResponse<SetStateAction<number>> = await axios.get('/api/loyalty/points', config);
+      setLoyaltyPoints(response.data);
+      setError('');
+      setLocalError('');
+    } catch (err: any) {
+      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
+        const newToken = await refreshAccessToken();
+        const config = { headers: { Authorization: `Bearer ${newToken}` } };
+        const response: AxiosResponse<SetStateAction<number>> = await axios.get('/api/loyalty/points', config);
+        setLoyaltyPoints(response.data);
+        setError('');
+        setLocalError('');
+      } else {
+        const errorMessage = t('client_dashboard.error') + ' ' + (err.response?.data || err.message);
+        setError(errorMessage);
+        setLocalError(errorMessage);
+        navigate('/login');
+      }
+    }    
+  }
 
   useEffect(() => {
     const initialize = async () => {
-      if (token && role === 'ROLE_C') {
-        await fetchProducts();
-        await fetchOrders();
-      } else {
+      if (!token || !role) {
+        const errorMessage = t('client_dashboard.error_login');
+        setError(errorMessage);
+        setLocalError(errorMessage);
         navigate('/login');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        if (role === 'ROLE_C') {
+          fetchProducts(token);
+          fetchOrders(token);
+          fetchPoints(token);
+          setError('');
+          setLocalError('');
+        } else {
+          const errorMessage = t('client_dashboard.error_role');
+          setError(errorMessage);
+          setLocalError(errorMessage);
+          navigate('/login');
+        }
+      } catch (err: any) {
+        const errorMessage = t('client_dashboard.error') + ' ' + (err.response?.data || err.message);
+        setError(errorMessage);
+        setLocalError(errorMessage);
+        navigate('/login');
+      } finally {
+        setIsLoading(false);
       }
     };
     initialize();
-  }, [token, role, navigate]);
+  }, [t, token, role, navigate, setToken, setRole, setError, fetchProducts, fetchOrders, fetchPoints]);
 
   useEffect(() => {
-    const socket = new SockJS('http://localhost:8080/ws/orders/info');
-    const client = Stomp.over(socket);
-    client.connect({}, (frame: any) => {
-      console.log('WebSocket connected:', frame);
-      client.subscribe('/topic/orders', (message) => {
-        console.log('Order update:', JSON.parse(message.body));
-        fetchOrders();
-      });
-    }, (error: unknown) => {
-      console.error('WebSocket error:', error);
-      setError(t('client_dashboard.websocket_error'));
-    });
-    setStompClient(client);
+    const connectWebSocket = () => {
+      console.log('Attempting WebSocket connection with token:', token ? token.substring(0, 10) + '...' : 'No token');
+      const socket = new SockJS('http://localhost:8080/ws/orders');
+      const client = Stomp.over(socket);
+      client.connect(
+        { Authorization: `Bearer ${token}` },
+        (frame: any) => {
+          console.log('WebSocket connected:', frame);
+          client.subscribe('/topic/orders', (message) => {
+            console.log('Order update received:', JSON.parse(message.body));
+            fetchOrders(token);
+          });
+          setStompClient(client);
+        },
+        (error: unknown) => {
+          console.error('WebSocket connection error:', error);
+          setLocalError(t('client_dashboard.websocket_error'));
+          setTimeout(connectWebSocket, 5000);
+        }
+      );
+    };
+
+    if (token && role === 'ROLE_C') {
+      connectWebSocket();
+    }
 
     return () => {
-      if (client.connected) {
-        client.disconnect(() => {
+      if (stompClient?.connected) {
+        stompClient.deactivate().then(() => {
           console.log('WebSocket disconnected');
+        }).catch((err) => {
+          console.error('WebSocket disconnection error:', err);
         });
       }
     };
-  }, [t]);
+  }, [t, token, role, fetchOrders, stompClient]);
 
-  const handleCheckout = async (cartItems : CartItem[]) => {
+  const handleCheckout = async (cartItems: CartItem[], loyaltyPoints: number) => {
     try {
       if (!token) {
-        setError('Please log in to place an order.');
+        setLocalError('Please log in to place an order.');
         navigate('/login');
         return;
       }
       const config = { headers: { Authorization: `Bearer ${token}` } };
+      const userResponse = await axios.get(`/api/users/email/${email}`, config).catch(async (err) => {
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          token = await refreshAccessToken();
+          return axios.get(`/api/users/email/${email}`, { headers: { Authorization: `Bearer ${token}` } });
+        }
+        throw err;
+      });
+      const userId = userResponse.data.id;
       const orderItems = cartItems.map((item: CartItem) => ({
         productId: item.id!,
         quantity: item.quantity,
         price: item.price
       }));
-      const payload = { items: orderItems };
+      const payload = { userId, items: orderItems, loyaltyPoints };
       console.log('Submitting order with payload:', payload, 'Role:', role, 'Token:', token.substring(0, 10) + '...');
-      const response = await axios.post('/api/orders', payload, config);
+      const response = await axios.post('/api/orders', payload, { headers: { Authorization: `Bearer ${token}` } });
       console.log('Order created successfully:', response.data);
-      setError('');
+      setCartItems([]);
+      localStorage.setItem('cart', JSON.stringify([]));
+      setLocalError('');
+      navigate('/orders');
     } catch (err: any) {
-      console.error('Checkout failed:', err.response?.data || err.message, 'Status:', err.response?.status, 'Headers:', err.response?.headers);
-      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
-        const newToken = await refreshAccessToken();
-        if (newToken) {
-          const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const orderItems = cartItems.map((item: CartItem) => ({
-            productId: item.id!,
-            quantity: item.quantity,
-            price: item.price
-          }));
-          const payload = { items: orderItems };
-          console.log('Retrying order submission with new token:', newToken.substring(0, 10) + '...');
-          const response = await axios.post('/api/orders', payload, config);
-          console.log('Order created successfully after refresh:', response.data);
-          setError('');
-        }
-      } else {
-        setError('Failed to place order: ' + (err.response?.data || err.message));
-      }
+      console.error('Checkout failed:', err.response?.data || err.message, 'Status:', err.response?.status);
+      setLocalError(t('client_dashboard.error_checkout') + ' ' + (err.response?.data || err.message));
     }
   };
 
-  const handleAddToCart = (product: Product) => {
-    if (product.id !== undefined) {
-      addToCart({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        description: product.description,
-        category: product.category,
-        isActive: product.isActive,
-        imageUrl: product.imageUrl,
-        createdBy: product.createdBy,
-        modifiedBy: product.modifiedBy,
-        createdAt: product.createdAt,
-        modifiedAt: product.modifiedAt,
-        quantity: 1
-      });
+  const addToCart = (product: Product) => {
+    if (!product.id) {
+      setLocalError(t('client_dashboard.error_add_to_cart'));
+      return;
     }
+    const updatedCart = [...cartItems];
+    const existingItem = updatedCart.find(item => item.id === product.id);
+    if (existingItem) {
+      existingItem.quantity += 1;
+    } else {
+      updatedCart.push({ id: product.id, name: product.name, description: product.description, category: product.category, isActive: product.isActive, quantity: 1, price: product.price });
+    }
+    setCartItems(updatedCart);
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
   };
 
   const filteredProducts = products
-    .filter(product => product.id !== undefined && (categoryFilter === 'all' || product.category === categoryFilter))
+    .filter(product => product.id !== undefined && (category === 'all' || product.category === category))
     .sort((a, b) => {
-      if (sortOrder === 'name-asc') return a.name.localeCompare(b.name);
-      if (sortOrder === 'name-desc') return b.name.localeCompare(a.name);
-      if (sortOrder === 'price-asc') return a.price - b.price;
-      if (sortOrder === 'price-desc') return b.price - a.price;
+      if (sortBy === 'name_asc') return a.name.localeCompare(b.name);
+      if (sortBy === 'name_desc') return b.name.localeCompare(a.name);
+      if (sortBy === 'price_asc') return a.price - b.price;
+      if (sortBy === 'price_desc') return b.price - a.price;
       return 0;
     });
 
+  if (isLoading) {
+    return <div className="container mx-auto px-6 py-8 text-center text-gray-600">{t('client_dashboard.loading')}</div>;
+  }
+
   return (
-    <div className="container mx-auto p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('client_dashboard.title')}</h2>
-      {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-      <div className="flex flex-col lg:flex-row gap-6">
-        <div className="lg:w-3/4">
-          <div className="mb-6 bg-white p-4 rounded-lg shadow-md">
-            <h3 className="text-2xl font-semibold mb-4">{t('client_dashboard.track_orders')}</h3>
-            {orders.length === 0 ? (
-              <p className="text-gray-600">{t('client_dashboard.no_orders')}</p>
-            ) : (
-              <div className="grid gap-4">
-                {orders.map(order => (
-                  <div key={order.id} className="border rounded-lg p-4 shadow-md">
-                    <h4 className="text-lg font-semibold">{t('client_dashboard.order_id')} {order.id}</h4>
-                    <p className="text-gray-600">{t('client_dashboard.status')} {statusMap[order.status] || order.status}</p>
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${statusProgress[order.status]}%` }}></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+    <div className="container mx-auto px-6 py-8 flex flex-col lg:flex-row gap-8">
+      {/* Main Content */}
+      <div className="flex-1">
+        <h2 className="text-4xl font-semibold text-gray-800 mb-6 animate-fade-in">{t('client_dashboard.title')}</h2>
+        {localError && <p className="text-red-500 mb-6 font-medium bg-red-50 p-4 rounded-lg animate-fade-in">{localError}</p>}
+        <div className="mb-8 bg-white p-6 rounded-lg shadow-md animate-fade-in">
+          <p className="text-xl font-medium text-gray-700">
+            {t('client_dashboard.loyalty_points')}: <span className="text-blue-600">{loyaltyPoints}</span>
+          </p>
+        </div>
+        <div className="mb-8 flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('client_dashboard.filter_category')}</label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+            >
+              <option value="all">{t('client_dashboard.category_all')}</option>
+              <option value="AP">{t('client_dashboard.category_ap')}</option>
+              <option value="MC">{t('client_dashboard.category_mc')}</option>
+              <option value="SD">{t('client_dashboard.category_sd')}</option>
+              <option value="DR">{t('client_dashboard.category_dr')}</option>
+              <option value="DE">{t('client_dashboard.category_de')}</option>
+            </select>
           </div>
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('client_dashboard.filter_category')}</label>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="border p-2 rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                <option value="all">{t('category.all')}</option>
-                {Object.keys(categoryMap).map(category => (
-                  <option key={category} value={category}>{categoryMap[category]}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('client_dashboard.sort_by')}</label>
-              <select
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value)}
-                className="border p-2 rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
-              >
-                <option value="name-asc">{t('sort.name_asc')}</option>
-                <option value="name-desc">{t('sort.name_desc')}</option>
-                <option value="price-asc">{t('sort.price_asc')}</option>
-                <option value="price-desc">{t('sort.price_desc')}</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {products.length === 0 && !error && <p className="text-gray-600">{t('client_dashboard.no_products')}</p>}
-            {filteredProducts.map(product => (
-              <div key={product.id || Math.random()} className="border rounded-lg shadow-md p-6 bg-white hover:shadow-lg transition-shadow duration-200">
-                <img src={product.imageUrl || '/placeholder.png'} alt={product.name} className="w-full h-48 object-cover rounded mb-4" />
-                <h3 className="text-lg font-semibold text-gray-800">{product.name}</h3>
-                <p className="text-gray-600">{product.description || t('client_dashboard.no_description')}</p>
-                <p className="text-gray-700 font-semibold mt-2">${product.price.toFixed(2)}</p>
-                <button
-                  onClick={() => handleAddToCart(product)}
-                  className="bg-blue-600 text-white p-2 rounded w-full mt-4 hover:bg-blue-700 transition-colors duration-200"
-                  disabled={product.id === undefined}
-                >
-                  {t('client_dashboard.add_to_cart')}
-                </button>
-              </div>
-            ))}
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">{t('client_dashboard.sort_by')}</label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+            >
+              <option value="name_asc">{t('client_dashboard.sort_name_asc')}</option>
+              <option value="name_desc">{t('client_dashboard.sort_name_desc')}</option>
+              <option value="price_asc">{t('client_dashboard.sort_price_asc')}</option>
+              <option value="price_desc">{t('client_dashboard.sort_price_desc')}</option>
+            </select>
           </div>
         </div>
-        <div className="lg:w-1/4">
-          <Cart onCheckout={(cartItems) => handleCheckout(cartItems)} />
+        {products.length === 0 && (
+          <p className="text-gray-600 text-lg animate-fade-in">{t('client_dashboard.no_products')}</p>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {filteredProducts.map(product => (
+            <div
+              key={product.id}
+              className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 animate-fade-in"
+            >
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="w-full h-48 object-cover rounded-md mb-4"
+              />
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">{product.name}</h3>
+              <p className="text-gray-600 mb-3 line-clamp-2">{product.description}</p>
+              <p className="text-gray-700 font-medium mb-4">
+                {t('client_dashboard.price')}: <span className="text-blue-600">${product.price.toFixed(2)}</span>
+              </p>
+              <button
+                onClick={() => addToCart(product)}
+                className="bg-blue-600 text-white p-3 rounded-lg w-full hover:bg-blue-700 transition-colors duration-200"
+              >
+                {t('client_dashboard.add_to_cart')}
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="mb-8">
+          <h3 className="text-2xl font-semibold text-gray-800 mb-4 animate-fade-in">{t('client_dashboard.track_orders')}</h3>
+          {orders.length === 0 ? (
+            <p className="text-gray-600 text-lg animate-fade-in">{t('client_dashboard.no_orders')}</p>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {orders.map(order => (
+                <li key={order.id} className="py-4 animate-fade-in">
+                  <p className="text-gray-700 font-medium">
+                    {t('client_dashboard.order_id')}: <span className="text-blue-600">{order.id}</span>
+                  </p>
+                  <p className="text-gray-600">
+                    {t('client_dashboard.order_status')}: <span className="text-blue-600">{t(`client_dashboard.status_${order.status.toLowerCase()}`)}</span>
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
+      {/* Fixed Cart */}
+      <div
+        className={`fixed top-16 right-0 w-80 bg-white shadow-xl rounded-l-lg transform transition-transform duration-300 z-40 lg:block ${
+          isCartOpen ? 'translate-x-0' : 'translate-x-80'
+        } hidden`}
+      >
+        <button
+          className="absolute top-4 -left-12 bg-blue-600 text-white p-2 rounded-l-lg hover:bg-blue-700 transition-colors duration-200"
+          onClick={() => setIsCartOpen(!isCartOpen)}
+          aria-label={isCartOpen ? t('cart.close') : t('cart.open')}
+        >
+          <img
+            src="https://cdn-icons-png.flaticon.com/512/263/263142.png"
+            alt={isCartOpen ? t('cart.close') : t('cart.open')}
+            className="w-6 h-6"
+          />
+        </button>
+        <div className="p-6 max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <Cart
+            onCheckout={handleCheckout}
+            token={token}
+            cartItems={cartItems}
+            setCartItems={setCartItems}
+          />
+        </div>
+      </div>
+      {/* Mobile Cart Toggle */}
+      <button
+        className="lg:hidden fixed bottom-4 right-4 bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200"
+        onClick={() => navigate('/cart')}
+        aria-label={t('cart.open')}
+      >
+        <img
+          src="https://cdn-icons-png.flaticon.com/512/263/263142.png"
+          alt={t('cart.open')}
+          className="w-6 h-6"
+        />
+      </button>
     </div>
   );
 };

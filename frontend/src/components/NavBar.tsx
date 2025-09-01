@@ -53,6 +53,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
       case 'ROLE_W':
         return '/waiter';
       case 'ROLE_C':
+        return '/client';
       default:
         return '/';
     }
@@ -177,13 +178,6 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
                 onClick={() => setIsMenuOpen(false)}
               >
                 {t('navbar.orders')}
-              </Link>
-              <Link
-                to="/cart"
-                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {t('cart.title')}
               </Link>
             </>
           )}

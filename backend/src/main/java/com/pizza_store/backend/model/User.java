@@ -49,19 +49,22 @@ public class User {
     @Column
     private String resetToken;
 
-    @Column(nullable = false)
+    @Column(name = "loyalty_points", nullable = false)
+    private int loyaltyPoints = 0;
+
+    @Column(name = "created_by", nullable = false)
     @CreatedBy
     private String createdBy;
 
-    @Column(nullable = false)
+    @Column(name = "modified_by", nullable = false)
     @LastModifiedBy
     private String modifiedBy;
 
-    @Column(nullable = false)
+    @Column(name = "created_at", nullable = false)
     @CreatedDate
     private LocalDateTime createdAt;
 
-    @Column(nullable = false)
+    @Column(name = "modified_at", nullable = false)
     @LastModifiedDate
     private LocalDateTime modifiedAt;
 
@@ -125,6 +128,10 @@ public class User {
     public void setActive(Boolean active) {
         this.active = active;
     }
+
+    public int getLoyaltyPoints() { return loyaltyPoints; }
+
+    public void setLoyaltyPoints(int loyaltyPoints) { this.loyaltyPoints = loyaltyPoints; }
 
     public String getRefreshToken() {
         return refreshToken;

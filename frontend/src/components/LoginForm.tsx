@@ -54,6 +54,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
           navigate('/waiter');
           break;
         case 'ROLE_C':
+          navigate('/client');
+          break;
         default:
           navigate('/');
           break;
@@ -96,6 +98,11 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
         >
           {t('login_form.submit')}
         </button>
+        <div className="mt-4 text-center">
+          <a href="/register" className="text-blue-600 hover:underline">
+            {t('login_form.register')}
+          </a>
+        </div>
         <div className="mt-4 text-center">
           <a href="/forgot-password" className="text-blue-600 hover:underline">
             {t('login_form.forgot_password')}

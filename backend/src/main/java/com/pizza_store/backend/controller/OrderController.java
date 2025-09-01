@@ -55,7 +55,7 @@ public class OrderController {
                         return new OrderItem(item.getProductId(), item.getQuantity(), product.getPrice());
                     })
                     .collect(Collectors.toList());
-            Order order = orderService.createOrder(effectiveUserId, orderItems);
+            Order order = orderService.createOrder(effectiveUserId, orderItems, orderRequest.getLoyaltyPoints());
             OrderStatusHistory history = new OrderStatusHistory();
             history.setOrderId(order.getId());
             history.setStatus(order.getStatus().name());
@@ -126,6 +126,7 @@ public class OrderController {
 class OrderRequest {
     private Long userId;
     private List<OrderItemRequest> items;
+    private int loyaltyPoints;
 
     public Long getUserId() {
         return userId;
@@ -142,6 +143,10 @@ class OrderRequest {
     public void setItems(List<OrderItemRequest> items) {
         this.items = items;
     }
+
+    public int getLoyaltyPoints() { return loyaltyPoints; }
+
+    public void setLoyaltyPoints(int loyaltyPoints) { this.loyaltyPoints = loyaltyPoints; }
 }
 
 class OrderItemRequest {

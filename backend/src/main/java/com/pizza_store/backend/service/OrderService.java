@@ -25,12 +25,20 @@ public class OrderService {
     private UserRepository userRepository;
 
     @Autowired
+    private LoyaltyService loyaltyService;
+
+    @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    public Order createOrder(Long userId, List<OrderItem> items) {
+    public Order createOrder(Long userId, List<OrderItem> items, Integer loyaltyPoints) {
         double totalPrice = items.stream()
                 .mapToDouble(item -> item.getPrice() * item.getQuantity())
                 .sum();
+        if (loyaltyPoints > 0) {
+            double discount = loyaltyService.redeemPoints(Math.toIntExact(userId), loyaltyPoints);
+            totalPrice -= discount;
+            if (totalPrice < 0) totalPrice = 0;
+        }
         String currentUser = SecurityContextHolder.getContext().getAuthentication() != null
                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                 : "system";
@@ -40,6 +48,10 @@ public class OrderService {
         order.setCreatedAt(LocalDateTime.now());
         Order savedOrder = orderRepository.save(order);
         LOGGER.info("Order created: ID=" + savedOrder.getId() + ", status=PE");
+
+        // Award loyalty points
+        loyaltyService.awardPoints(Math.toIntExact(order.getUserId()), order.getTotalPrice());
+
         messagingTemplate.convertAndSend("/topic/orders/" + savedOrder.getId(),
                 new OrderStatusUpdate(savedOrder.getId(), OrderStatus.PE.name(), LocalDateTime.now()));
         return savedOrder;
