@@ -1,16 +1,19 @@
 package com.pizza_store.backend.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Embeddable;
+import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+
+import java.util.List;
 
 @Embeddable
 public class OrderItem {
 
-    @Column(nullable = false)
-    @NotNull(message = "Product ID cannot be null")
-    private Long productId;
+    @Column(name = "product_id")
+    private Long productId; //null for custom pizzas
+
+    @Column
+    private List<Integer> ingredients; // For custom pizzas
 
     @Column(nullable = false)
     @NotNull(message = "Quantity cannot be null")
@@ -26,8 +29,9 @@ public class OrderItem {
     public OrderItem() {
     }
 
-    public OrderItem(Long productId, Integer quantity, Double price) {
+    public OrderItem(Long productId, List<Integer> ingredients, Integer quantity, Double price) {
         this.productId = productId;
+        this.ingredients = ingredients;
         this.quantity = quantity;
         this.price = price;
     }
@@ -40,6 +44,10 @@ public class OrderItem {
     public void setProductId(Long productId) {
         this.productId = productId;
     }
+
+    public List<Integer> getIngredients() { return ingredients; }
+
+    public void setIngredients(List<Integer> ingredients) { this.ingredients = ingredients; }
 
     public Integer getQuantity() {
         return quantity;
@@ -56,4 +64,5 @@ public class OrderItem {
     public void setPrice(Double price) {
         this.price = price;
     }
+
 }

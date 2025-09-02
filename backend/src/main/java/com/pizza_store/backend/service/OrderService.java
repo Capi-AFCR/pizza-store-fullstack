@@ -28,26 +28,21 @@ public class OrderService {
     private LoyaltyService loyaltyService;
 
     @Autowired
+    private IngredientService ingredientService;
+
+    @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    public Order createOrder(Long userId, List<OrderItem> items, Integer loyaltyPoints) {
-        double totalPrice = items.stream()
-                .mapToDouble(item -> item.getPrice() * item.getQuantity())
-                .sum();
-        if (loyaltyPoints > 0) {
-            double discount = loyaltyService.redeemPoints(Math.toIntExact(userId), loyaltyPoints);
-            totalPrice -= discount;
-            if (totalPrice < 0) totalPrice = 0;
-        }
-        String currentUser = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : "system";
-        Order order = new Order(userId, items, totalPrice, OrderStatus.PE);
+    public Order createOrder(Order order) {
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         order.setCreatedBy(currentUser);
         order.setModifiedBy(currentUser);
         order.setCreatedAt(LocalDateTime.now());
+        order.setModifiedAt(LocalDateTime.now());
+        if (order.getScheduledAt() != null && order.getScheduledAt().isBefore(LocalDateTime.now().plusHours(1))) {
+            throw new IllegalArgumentException("Scheduled time must be at least 1 hour in the future");
+        }
         Order savedOrder = orderRepository.save(order);
-        LOGGER.info("Order created: ID=" + savedOrder.getId() + ", status=PE");
 
         // Award loyalty points
         loyaltyService.awardPoints(Math.toIntExact(order.getUserId()), order.getTotalPrice());
@@ -57,7 +52,7 @@ public class OrderService {
         return savedOrder;
     }
 
-    public List<Order> getUserOrders(Long userId) {
+    public List<Order> getClientOrders(Long userId) {
         return orderRepository.findByUserId(userId);
     }
 

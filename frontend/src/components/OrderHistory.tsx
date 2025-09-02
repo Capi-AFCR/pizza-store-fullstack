@@ -20,7 +20,7 @@ const OrderHistory: React.FC = () => {
           return;
         }
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const response: AxiosResponse<Order[]> = await axios.get('/api/orders/user', config);
+        const response: AxiosResponse<Order[]> = await axios.get('/api/orders/client', config);
         setOrders(response.data);
         setError('');
       } catch (err: any) {

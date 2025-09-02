@@ -1,63 +1,53 @@
-import i18next from 'i18next';
+import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import HttpApi from 'i18next-http-backend';
-import { Translation } from './types';
+import axios from 'axios';
 
-i18next
-  .use(HttpApi)
-  .use(initReactI18next)
-  .init({
+const fetchTranslations = async (language: string) => {
+  try {
+    const response = await axios.get(`/api/translations?language=${language}`);
+    return response.data.reduce(
+      (acc: { [key: string]: string }, t: { key: string; value: string }) => {
+        acc[t.key] = t.value;
+        return acc;
+      },
+      {}
+    );
+  } catch (error) {
+    console.error('Failed to fetch translations:', error);
+    return {};
+  }
+};
+
+export const isI18nInitialized = async (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (i18n.isInitialized) {
+      resolve(true);
+    } else {
+      i18n.on('initialized', () => resolve(true));
+    }
+  });
+};
+
+const initializeI18n = async () => {
+  const languages = ['en', 'es', 'fr'];
+  const resources: {
+    [key: string]: { translation: { [key: string]: string } };
+  } = {};
+
+  for (const lang of languages) {
+    resources[lang] = { translation: await fetchTranslations(lang) };
+  }
+
+  await i18n.use(initReactI18next).init({
+    resources,
     lng: localStorage.getItem('language') || 'en',
     fallbackLng: 'en',
     interpolation: {
       escapeValue: false,
     },
-    backend: {
-      loadPath: '/api/translations?language={{lng}}',
-      parse: (data: string) => {
-        try {
-          const translations = JSON.parse(data) as Translation[];
-          const resources: { [key: string]: string } = {};
-          translations.forEach((t: Translation) => {
-            resources[t.key] = t.value;
-          });
-          return resources;
-        } catch (error) {
-          console.error('Failed to parse translations:', error);
-          return {
-            'navbar.title': 'Pizza Store',
-            'navbar.login': 'Login',
-            'navbar.register': 'Register',
-            'navbar.orders': 'Orders',
-            'navbar.logout': 'Logout',
-            'navbar.language_en': 'English',
-            'navbar.language_es': 'Spanish',
-            'navbar.language_fr': 'French',
-          };
-        }
-      },
-    },
-  })
-  .catch((error) => {
-    console.error('Failed to initialize i18next:', error);
-    i18next.init({
-      lng: 'en',
-      fallbackLng: 'en',
-      resources: {
-        en: {
-          translation: {
-            'navbar.title': 'Pizza Store',
-            'navbar.login': 'Login',
-            'navbar.register': 'Register',
-            'navbar.orders': 'Orders',
-            'navbar.logout': 'Logout',
-            'navbar.language_en': 'English',
-            'navbar.language_es': 'Spanish',
-            'navbar.language_fr': 'French',
-          },
-        },
-      },
-    });
   });
+};
 
-export default i18next;
+initializeI18n();
+
+export default i18n;

@@ -26,6 +26,8 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('email');
     localStorage.removeItem('role');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('token');
     navigate('/login');
   };
 
@@ -132,6 +134,12 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
               >
                 {t('order_form.title')}
               </Link>
+              <Link 
+                to="/admin/analytics" 
+                className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
+              >
+                {t('navbar.analytics')}
+              </Link>
             </>
           )}
           {token && role === 'ROLE_K' && (
@@ -173,7 +181,7 @@ const NavBar: React.FC<NavBarProps> = ({ token, role, setToken, setRefreshToken,
           {token && role === 'ROLE_C' && (
             <>
               <Link
-                to="/orders"
+                to="/orders/client"
                 className="text-white text-base font-medium py-2 md:py-0 hover:text-blue-200 hover:underline transition-colors duration-200"
                 onClick={() => setIsMenuOpen(false)}
               >

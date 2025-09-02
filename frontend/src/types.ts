@@ -35,8 +35,25 @@ export interface Product {
   modifiedAt?: string;
 }
 
-export interface CartItem extends Product {
+export interface Ingredient {
+  id: number;
+  name: string;
+  category: 'DO' | 'CR' | 'SA' | 'CH' | 'TO' | 'SI';
+  price: number;
+  isActive: boolean;
+}
+
+export interface CartItem {
+  id?: number;
+  productId: number;
   quantity: number;
+  price: number;
+  name?: string;
+  description?: string;
+  category?: string;
+  isActive?: boolean;
+  ingredients?: Ingredient[];
+  isCustomPizza?: boolean;
 }
 
 export interface OrderItem {
@@ -51,10 +68,12 @@ export interface Order {
   items: OrderItem[];
   totalPrice: number;
   status: 'PE' | 'AP' | 'RE' | 'OW' | 'DN' | 'DY' | 'CA';
-  createdBy: string;
-  modifiedBy: string;
+  scheduledAt?: string;
+  customPizza?: boolean;
+  createdBy?: string;
+  modifiedBy?: string;
   createdAt: string;
-  modifiedAt: string;
+  modifiedAt?: string;
 }
 
 export interface OrderStatusUpdate {

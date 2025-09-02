@@ -91,17 +91,9 @@ const OrderForm: React.FC = () => {
   const handleAddToCart = (product: Product) => {
       if (product.id !== undefined) {
         addToCart({
-          id: product.id,
+          productId: product.id,
           name: product.name,
           price: product.price,
-          description: product.description,
-          category: product.category,
-          isActive: product.isActive,
-          imageUrl: product.imageUrl,
-          createdBy: product.createdBy,
-          modifiedBy: product.modifiedBy,
-          createdAt: product.createdAt,
-          modifiedAt: product.modifiedAt,
           quantity: 1
         });
       }

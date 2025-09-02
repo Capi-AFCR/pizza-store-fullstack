@@ -4,7 +4,7 @@ import axios from 'axios';
 import { CartItem } from '../types';
 
 interface CartProps {
-  onCheckout: (items: CartItem[], loyaltyPoints: number) => void;
+  onCheckout: (items: CartItem[], loyaltyPoints: number, scheduledAt?: string) => void;
   disabled?: boolean;
   token: string;
   cartItems: CartItem[];
@@ -15,6 +15,7 @@ const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false, token, cartIt
   const { t } = useTranslation();
   const [loyaltyPoints, setLoyaltyPoints] = useState<number>(0);
   const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
+  const [scheduledAt, setScheduledAt] = useState<string>('');
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -44,7 +45,7 @@ const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false, token, cartIt
 
   const handleCheckout = () => {
     if (cartItems.length > 0) {
-      onCheckout(cartItems, pointsToRedeem);
+      onCheckout(cartItems, pointsToRedeem, scheduledAt || undefined);
       setPointsToRedeem(0);
     }
   };
@@ -79,12 +80,26 @@ const Cart: React.FC<CartProps> = ({ onCheckout, disabled = false, token, cartIt
                 {t('cart.redeem_info', { points: 10, discount: 5 })}
               </p>
             </div>
+            <div className="mt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">{t('cart.schedule_order')}</label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                min={new Date(Date.now() + 3600000).toISOString().slice(0, 16)} // 1 hour from now
+                className="border border-gray-300 p-2 rounded-lg w-full focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+              />
+              <p className="text-sm text-gray-600 mt-1">{t('cart.schedule_info')}</p>
+            </div>
           </div>
           <ul className="divide-y divide-gray-200 flex-1">
             {cartItems.map(item => (
               <li key={item.id} className="py-3 flex justify-between items-center">
                 <div>
                   <p className="text-gray-700 font-medium">{item.name || `Product ID: ${item.id}`}</p>
+                  {item.isCustomPizza && (
+                    <p className="text-gray-600 text-sm">{t('custom_pizza.custom_pizza')}</p>
+                  )}
                   <p className="text-gray-600 text-sm">{t('cart.quantity')}: {item.quantity}</p>
                   <p className="text-gray-600 text-sm">{t('cart.unit_price')}: ${item.price.toFixed(2)}</p>
                 </div>
