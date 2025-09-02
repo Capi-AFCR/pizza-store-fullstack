@@ -1,6 +1,7 @@
 import React, { useState, Dispatch, SetStateAction } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface LoginFormProps {
   setToken: Dispatch<SetStateAction<string>>;
@@ -10,28 +11,35 @@ interface LoginFormProps {
   setError: Dispatch<SetStateAction<string>>;
 }
 
+interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  email: string;
+  role: string;
+}
+
 const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEmail, setRole, setError }) => {
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [localError, setLocalError] = useState<string>('');
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/login', {
+      const response: AxiosResponse<LoginResponse> = await axios.post('/api/auth/login', {
         username,
         password,
       });
       setToken(response.data.accessToken);
       setRefreshToken(response.data.refreshToken);
-      setEmail(username);
+      setEmail(response.data.email);
       setRole(response.data.role);
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
-      localStorage.setItem('email', username);
-      localStorage.setItem('role', response.data.role);
       setError('');
-      // Redirect to role-specific dashboard
+      setLocalError('');
+
+      // Redirect based on role
       switch (response.data.role) {
         case 'ROLE_A':
           navigate('/admin');
@@ -49,34 +57,38 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
           navigate('/client');
           break;
         default:
-          navigate('/login');
+          navigate('/');
+          break;
       }
     } catch (err: any) {
-      setError('Login failed: ' + (err.response?.data || err.message));
+      const errorMessage = t('login_form.error') + ' ' + (err.response?.data || err.message);
+      setError(errorMessage);
+      setLocalError(errorMessage);
     }
   };
 
   return (
     <div className="container mx-auto p-6 max-w-md">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Login</h2>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('login_form.title')}</h2>
+      {localError && <p className="text-red-500 mb-4 font-semibold">{localError}</p>}
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">{t('login_form.username')}</label>
           <input
-            type="email"
+            type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Password</label>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700">{t('login_form.password')}</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
             required
           />
         </div>
@@ -84,23 +96,19 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
           type="submit"
           className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
         >
-          Login
+          {t('login_form.submit')}
         </button>
-      </form>
-      <div className="mt-4 text-center">
-        <p className="text-gray-600">
-          Don't have an account?{' '}
+        <div className="mt-4 text-center">
           <a href="/register" className="text-blue-600 hover:underline">
-            Register
+            {t('login_form.register')}
           </a>
-        </p>
-        <p className="text-gray-600">
-          Forgot your password?{' '}
+        </div>
+        <div className="mt-4 text-center">
           <a href="/forgot-password" className="text-blue-600 hover:underline">
-            Reset Password
+            {t('login_form.forgot_password')}
           </a>
-        </p>
-      </div>
+        </div>
+      </form>
     </div>
   );
 };

@@ -1,98 +1,87 @@
-import React, { useState, Dispatch, SetStateAction } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios, { AxiosResponse } from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { User } from '../types';
 
-interface UserFormProps {
-  setError: Dispatch<SetStateAction<string>>;
-}
-
-const UserForm: React.FC<UserFormProps> = ({ setError }) => {
-  const [formData, setFormData] = useState<User>({
-    name: '',
-    email: '',
-    password: '',
-    role: 'C',
-    active: true,
-    createdBy: 'system',
-    modifiedBy: 'system'
-  });
-  const [error, setLocalError] = useState<string>(''); // Local error state
+const UserDetails: React.FC = () => {
+  const { t } = useTranslation();
+  const [user, setUser] = useState<User | null>(null);
+  const [error, setError] = useState<string>('');
   const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
   const token = localStorage.getItem('accessToken') || '';
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const refreshAccessToken = async () => {
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      console.log('Creating user:', formData);
-      const response: AxiosResponse<User> = await axios.post('/api/users', formData, config);
-      setLocalError('');
-      navigate('/admin/users');
+      const email = localStorage.getItem('email') || '';
+      const refreshToken = localStorage.getItem('refreshToken') || '';
+      const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/refresh', {
+        email,
+        refreshToken
+      });
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('role', response.data.role);
+      return response.data.accessToken;
     } catch (err: any) {
-      console.error('Create user failed:', err.response?.data || err.message);
-      setLocalError(err.response?.data || 'Failed to create user');
+      setError(t('user_details.error_token'));
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('email');
+      localStorage.removeItem('role');
+      navigate('/login');
+      return null;
     }
   };
 
+  const fetchUser = async () => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response: AxiosResponse<User> = await axios.get(`/api/users/${id}`, config);
+      setUser(response.data);
+      setError('');
+    } catch (err: any) {
+      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          const config = { headers: { Authorization: `Bearer ${newToken}` } };
+          const response: AxiosResponse<User> = await axios.get(`/api/users/${id}`, config);
+          setUser(response.data);
+          setError('');
+        }
+      } else {
+        setError(t('user_details.error_fetch') + ' ' + (err.response?.data || err.message));
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (id) fetchUser();
+  }, [id, token]);
+
+  if (!user) return <div className="container mx-auto p-6">{error || t('user_details.loading', 'Loading...')}</div>;
+
   return (
     <div className="container mx-auto p-6 max-w-md">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Add New User</h2>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('user_details.title')}</h2>
       {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700">Name</label>
-          <input
-            type="text"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700">Password</label>
-          <input
-            type="password"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
-            required
-          />
-        </div>
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700">Role</label>
-          <select
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as 'A' | 'C' | 'K' | 'D' | 'W' })}
-            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="A">Admin</option>
-            <option value="C">Client</option>
-            <option value="K">Kitchen</option>
-            <option value="D">Delivery</option>
-            <option value="W">Waiter</option>
-          </select>
-        </div>
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <p className="text-gray-700"><strong>{t('user_details.name')}:</strong> {user.name}</p>
+        <p className="text-gray-700"><strong>{t('user_details.email')}:</strong> {user.email}</p>
+        <p className="text-gray-700"><strong>{t('user_details.role')}:</strong> {user.role}</p>
+        <p className="text-gray-700"><strong>{t('user_details.active')}:</strong> {user.active ? t('user_details.active_yes', 'Yes') : t('user_details.active_no', 'No')}</p>
+        <p className="text-gray-700"><strong>{t('user_details.created_by')}:</strong> {user.createdBy}</p>
+        <p className="text-gray-700"><strong>{t('user_details.modified_by')}:</strong> {user.modifiedBy}</p>
         <button
-          type="submit"
-          className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700 transition-colors duration-200"
+          onClick={() => navigate('/admin/users')}
+          className="bg-blue-600 text-white p-2 rounded w-full mt-4 hover:bg-blue-700 transition-colors duration-200"
         >
-          Create User
+          {t('user_details.back', 'Back to User List')}
         </button>
-      </form>
+      </div>
     </div>
   );
 };
 
-export default UserForm;
+export default UserDetails;

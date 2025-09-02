@@ -4,14 +4,19 @@ import com.pizza_store.backend.model.*;
 import com.pizza_store.backend.repository.OrderRepository;
 import com.pizza_store.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
+
+    private static final Logger LOGGER = Logger.getLogger(OrderService.class.getName());
 
     @Autowired
     private OrderRepository orderRepository;
@@ -19,19 +24,37 @@ public class OrderService {
     @Autowired
     private UserRepository userRepository;
 
-    public Order createOrder(Long userId, List<OrderItem> items) {
+    @Autowired
+    private LoyaltyService loyaltyService;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    public Order createOrder(Long userId, List<OrderItem> items, Integer loyaltyPoints) {
         double totalPrice = items.stream()
                 .mapToDouble(item -> item.getPrice() * item.getQuantity())
                 .sum();
-
+        if (loyaltyPoints > 0) {
+            double discount = loyaltyService.redeemPoints(Math.toIntExact(userId), loyaltyPoints);
+            totalPrice -= discount;
+            if (totalPrice < 0) totalPrice = 0;
+        }
         String currentUser = SecurityContextHolder.getContext().getAuthentication() != null
                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                 : "system";
-
         Order order = new Order(userId, items, totalPrice, OrderStatus.PE);
         order.setCreatedBy(currentUser);
         order.setModifiedBy(currentUser);
-        return orderRepository.save(order);
+        order.setCreatedAt(LocalDateTime.now());
+        Order savedOrder = orderRepository.save(order);
+        LOGGER.info("Order created: ID=" + savedOrder.getId() + ", status=PE");
+
+        // Award loyalty points
+        loyaltyService.awardPoints(Math.toIntExact(order.getUserId()), order.getTotalPrice());
+
+        messagingTemplate.convertAndSend("/topic/orders/" + savedOrder.getId(),
+                new OrderStatusUpdate(savedOrder.getId(), OrderStatus.PE.name(), LocalDateTime.now()));
+        return savedOrder;
     }
 
     public List<Order> getUserOrders(Long userId) {
@@ -56,28 +79,23 @@ public class OrderService {
 
     public List<Order> getWaiterOrders() {
         return orderRepository.findAll().stream()
-                .filter(order -> order.getStatus() == OrderStatus.PE ||
-                        order.getStatus() == OrderStatus.RE ||
-                        order.getStatus() == OrderStatus.DN)
+                .filter(order -> order.getStatus() == OrderStatus.PE || order.getStatus() == OrderStatus.RE || order.getStatus() == OrderStatus.DN)
                 .collect(Collectors.toList());
     }
 
     public Order updateOrderStatus(Long id, OrderStatus newStatus) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + id));
-
         if (order.getStatus() == OrderStatus.DY || order.getStatus() == OrderStatus.CA) {
             throw new RuntimeException("Cannot update order status: order is already " +
                     (order.getStatus() == OrderStatus.DY ? "Delivered - Paid" : "Cancelled"));
         }
-
         String currentUserEmail = SecurityContextHolder.getContext().getAuthentication() != null
                 ? SecurityContextHolder.getContext().getAuthentication().getName()
                 : "system";
         Role currentUserRole = userRepository.findByEmail(currentUserEmail)
                 .map(User::getRole)
                 .orElseThrow(() -> new RuntimeException("User not found: " + currentUserEmail));
-
         boolean isValidTransition = false;
         switch (order.getStatus()) {
             case PE:
@@ -114,14 +132,40 @@ public class OrderService {
             default:
                 throw new RuntimeException("Invalid current status: " + order.getStatus());
         }
-
         if (!isValidTransition) {
-            throw new RuntimeException("Invalid status transition from " + order.getStatus() +
-                    " to " + newStatus + " for role " + currentUserRole);
+            throw new RuntimeException("Invalid status transition from " + order.getStatus() + " to " + newStatus + " for role " + currentUserRole);
         }
-
         order.setStatus(newStatus);
         order.setModifiedBy(currentUserEmail);
-        return orderRepository.save(order);
+        order.setModifiedAt(LocalDateTime.now());
+        Order updatedOrder = orderRepository.save(order);
+        LOGGER.info("Order status updated: ID=" + id + ", status=" + newStatus);
+        messagingTemplate.convertAndSend("/topic/orders/" + id,
+                new OrderStatusUpdate(id, newStatus.name(), LocalDateTime.now()));
+        return updatedOrder;
+    }
+}
+
+class OrderStatusUpdate {
+    private Long orderId;
+    private String status;
+    private LocalDateTime updatedAt;
+
+    public OrderStatusUpdate(Long orderId, String status, LocalDateTime updatedAt) {
+        this.orderId = orderId;
+        this.status = status;
+        this.updatedAt = updatedAt;
+    }
+
+    public Long getOrderId() {
+        return orderId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 }

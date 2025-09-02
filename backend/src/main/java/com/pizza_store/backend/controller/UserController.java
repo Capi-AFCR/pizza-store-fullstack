@@ -30,6 +30,21 @@ public class UserController {
         return ResponseEntity.ok(userService.getClientUsers());
     }
 
+    @GetMapping("/email/{email}")
+    public ResponseEntity<User> getUserByEmail(@PathVariable String email) {
+        try {
+            LOGGER.info("Fetching user by email: " + email);
+            User user = userService.findByEmail(email);
+            if (user == null) {
+                return ResponseEntity.status(404).body(null);
+            }
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            LOGGER.severe("Failed to fetch user by email: " + e.getMessage());
+            return ResponseEntity.status(400).body(null);
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user) {
         try {

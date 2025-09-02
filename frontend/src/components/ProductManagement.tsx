@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios, { AxiosResponse } from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Product } from '../types';
 
 const ProductManagement: React.FC = () => {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState<string>('');
   const [formData, setFormData] = useState<Product>({
@@ -34,7 +36,7 @@ const ProductManagement: React.FC = () => {
       return response.data.accessToken;
     } catch (err: any) {
       console.error('Token refresh failed:', err.response?.data || err.message);
-      setError('Failed to refresh token. Please log in again.');
+      setError(t('product_management.error_token'));
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('email');
@@ -62,19 +64,18 @@ const ProductManagement: React.FC = () => {
           setError('');
         }
       } else {
-        setError('Failed to fetch products: ' + (err.response?.data || err.message));
+        setError(t('product_management.error_fetch') + ' ' + (err.response?.data || err.message));
       }
     }
   };
 
   const handleCreateOrUpdate = async () => {
     if (!formData.name || !formData.price || !['AP', 'MC', 'SD', 'DR', 'DE'].includes(formData.category)) {
-      setError('Please fill in all required fields and select a valid category.');
+      setError(t('product_management.error_form'));
       return;
     }
     try {
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      // Omit id for creation to let backend generate it
       const payload = { ...formData, id: undefined };
       let response: AxiosResponse<Product>;
       if (editingId) {
@@ -105,7 +106,7 @@ const ProductManagement: React.FC = () => {
           setError('');
         }
       } else {
-        setError('Failed to save product: ' + (err.response?.data || err.message));
+        setError(t('product_management.error_save') + ' ' + (err.response?.data || err.message));
       }
     }
   };
@@ -128,14 +129,14 @@ const ProductManagement: React.FC = () => {
           setError('');
         }
       } else {
-        setError('Failed to delete product: ' + (err.response?.data || err.message));
+        setError(t('product_management.error_delete') + ' ' + (err.response?.data || err.message));
       }
     }
   };
 
   const handleEdit = (product: Product) => {
     if (!product.id) {
-      setError('Cannot edit product: missing id');
+      setError(t('product_management.error_edit'));
       return;
     }
     setFormData(product);
@@ -160,36 +161,36 @@ const ProductManagement: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">Manage Products</h2>
+      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('product_management.title')}</h2>
       {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
 
       {/* Product Form */}
       <div className="mb-8 bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold mb-4">{editingId ? 'Edit Product' : 'Add New Product'}</h3>
+        <h3 className="text-xl font-semibold mb-4">{editingId ? t('product_management.edit_product', 'Edit Product') : t('product_management.add_product', 'Add New Product')}</h3>
         <div className="grid gap-4">
           <input
             type="text"
-            placeholder="Name"
+            placeholder={t('product_management.name_placeholder', 'Name')}
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
           />
           <textarea
-            placeholder="Description"
+            placeholder={t('product_management.description_placeholder', 'Description')}
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="number"
-            placeholder="Price"
+            placeholder={t('product_management.price_placeholder', 'Price')}
             value={formData.price}
             onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
             className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="text"
-            placeholder="Image URL"
+            placeholder={t('product_management.image_placeholder', 'Image URL')}
             value={formData.imageUrl}
             onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
             className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
@@ -199,26 +200,26 @@ const ProductManagement: React.FC = () => {
             onChange={(e) => setFormData({ ...formData, category: e.target.value as 'AP' | 'MC' | 'SD' | 'DR' | 'DE' | '' })}
             className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Select Category</option>
-            <option value="AP">Appetizers</option>
-            <option value="MC">Main Courses</option>
-            <option value="SD">Sides</option>
-            <option value="DR">Drinks</option>
-            <option value="DE">Desserts</option>
+            <option value="">{t('product_management.select_category', 'Select Category')}</option>
+            <option value="AP">{t('client_dashboard.category_ap', 'Appetizers')}</option>
+            <option value="MC">{t('client_dashboard.category_mc', 'Main Courses')}</option>
+            <option value="SD">{t('client_dashboard.category_sd', 'Sides')}</option>
+            <option value="DR">{t('client_dashboard.category_dr', 'Drinks')}</option>
+            <option value="DE">{t('client_dashboard.category_de', 'Desserts')}</option>
           </select>
           <div className="flex gap-4">
             <button
               onClick={handleCreateOrUpdate}
               className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors duration-200"
             >
-              {editingId ? 'Update' : 'Create'}
+              {editingId ? t('product_management.update', 'Update') : t('product_management.create', 'Create')}
             </button>
             {editingId && (
               <button
                 onClick={resetForm}
                 className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600 transition-colors duration-200"
               >
-                Cancel
+                {t('product_management.cancel', 'Cancel')}
               </button>
             )}
           </div>
@@ -227,8 +228,8 @@ const ProductManagement: React.FC = () => {
 
       {/* Product List */}
       <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-xl font-semibold mb-4">Product List</h3>
-        {products.length === 0 && !error && <p className="text-gray-600">No products found.</p>}
+        <h3 className="text-xl font-semibold mb-4">{t('product_management.product_list', 'Product List')}</h3>
+        {products.length === 0 && !error && <p className="text-gray-600">{t('product_management.no_products', 'No products found.')}</p>}
         <div className="grid gap-4">
           {products.map(product => (
             <div key={product.id || Math.random()} className="flex justify-between items-center border-b py-2">
@@ -236,21 +237,21 @@ const ProductManagement: React.FC = () => {
                 <p className="text-gray-700 font-semibold">{product.name}</p>
                 <p className="text-gray-600">{product.description}</p>
                 <p className="text-gray-700">${product.price.toFixed(2)}</p>
-                <p className="text-gray-600">Category: {product.category}</p>
+                <p className="text-gray-600">{t('product_management.category', 'Category')}: {product.category}</p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleEdit(product)}
                   className="bg-yellow-500 text-white p-2 rounded hover:bg-yellow-600 transition-colors duration-200"
                 >
-                  Edit
+                  {t('product_management.edit', 'Edit')}
                 </button>
                 {product.id && (
                   <button
-                    onClick={() => product.id && handleDelete(product.id)}
+                    onClick={() => product.id && handleDelete(product.id)} // Ensure id is defined
                     className="bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
                   >
-                    Delete
+                    {t('product_management.delete', 'Delete')}
                   </button>
                 )}
               </div>

@@ -3,7 +3,9 @@ package com.pizza_store.backend.controller;
 import com.pizza_store.backend.model.Order;
 import com.pizza_store.backend.model.OrderItem;
 import com.pizza_store.backend.model.OrderStatus;
+import com.pizza_store.backend.model.OrderStatusHistory;
 import com.pizza_store.backend.model.Product;
+import com.pizza_store.backend.repository.OrderStatusHistoryRepository;
 import com.pizza_store.backend.repository.ProductRepository;
 import com.pizza_store.backend.repository.UserRepository;
 import com.pizza_store.backend.service.OrderService;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -31,6 +34,9 @@ public class OrderController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private OrderStatusHistoryRepository orderStatusHistoryRepository;
+
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest) {
         try {
@@ -49,7 +55,13 @@ public class OrderController {
                         return new OrderItem(item.getProductId(), item.getQuantity(), product.getPrice());
                     })
                     .collect(Collectors.toList());
-            Order order = orderService.createOrder(effectiveUserId, orderItems);
+            Order order = orderService.createOrder(effectiveUserId, orderItems, orderRequest.getLoyaltyPoints());
+            OrderStatusHistory history = new OrderStatusHistory();
+            history.setOrderId(order.getId());
+            history.setStatus(order.getStatus().name());
+            history.setUpdatedAt(LocalDateTime.now());
+            history.setUpdatedBy(currentUserEmail);
+            orderStatusHistoryRepository.save(history);
             return ResponseEntity.status(201).body(order);
         } catch (Exception e) {
             LOGGER.severe("Failed to create order: " + e.getMessage());
@@ -94,8 +106,15 @@ public class OrderController {
     @PutMapping("/{id}")
     public ResponseEntity<?> updateOrderStatus(@PathVariable Long id, @RequestBody UpdateOrderStatusRequest request) {
         try {
-            LOGGER.info("Updating order status for order ID: " + id);
+            String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
+            LOGGER.info("Updating order status for order ID: " + id + " by user: " + currentUserEmail);
             Order order = orderService.updateOrderStatus(id, request.getStatus());
+            OrderStatusHistory history = new OrderStatusHistory();
+            history.setOrderId(id);
+            history.setStatus(request.getStatus().name());
+            history.setUpdatedAt(LocalDateTime.now());
+            history.setUpdatedBy(currentUserEmail);
+            orderStatusHistoryRepository.save(history);
             return ResponseEntity.ok(order);
         } catch (Exception e) {
             LOGGER.severe("Failed to update order status: " + e.getMessage());
@@ -107,6 +126,7 @@ public class OrderController {
 class OrderRequest {
     private Long userId;
     private List<OrderItemRequest> items;
+    private int loyaltyPoints;
 
     public Long getUserId() {
         return userId;
@@ -123,6 +143,10 @@ class OrderRequest {
     public void setItems(List<OrderItemRequest> items) {
         this.items = items;
     }
+
+    public int getLoyaltyPoints() { return loyaltyPoints; }
+
+    public void setLoyaltyPoints(int loyaltyPoints) { this.loyaltyPoints = loyaltyPoints; }
 }
 
 class OrderItemRequest {

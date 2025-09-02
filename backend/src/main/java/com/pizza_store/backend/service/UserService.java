@@ -1,13 +1,18 @@
 package com.pizza_store.backend.service;
 
+import com.pizza_store.backend.model.PasswordResetToken;
 import com.pizza_store.backend.model.Role;
 import com.pizza_store.backend.model.User;
+import com.pizza_store.backend.repository.PasswordResetTokenRepository;
 import com.pizza_store.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -17,6 +22,12 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PasswordResetTokenRepository tokenRepository;
+
+    @Autowired
+    private JavaMailSender mailSender;
 
     @Autowired
     private BCryptPasswordEncoder passwordEncoder;
@@ -51,6 +62,10 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email).orElse(null);
+    }
+
     public User updateUser(Long id, User updatedUser) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found: " + id));
@@ -69,14 +84,26 @@ public class UserService {
         userRepository.deleteById(id);
     }
 
-    public String generateResetToken(String email) {
+    public void generateResetToken(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found: " + email));
         String token = UUID.randomUUID().toString();
-        user.setResetToken(token);
-        user.setModifiedBy(email);
-        userRepository.save(user);
-        return token;
+        PasswordResetToken resetToken = new PasswordResetToken();
+        resetToken.setUserId(Math.toIntExact(user.getId()));
+        resetToken.setToken(token);
+        resetToken.setExpiryDate(LocalDateTime.now().plusHours(1));
+        resetToken.setUsed(false);
+        tokenRepository.save(resetToken);
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(email);
+        message.setSubject("Password Reset Request");
+        message.setText(
+                "To reset your password, click the link below:\n" +
+                        "http://localhost:3000/reset-password?token=" + token + "\n" +
+                        "This link will expire in 1 hour."
+        );
+        mailSender.send(message);
     }
 
     public void resetPassword(String token, String newPassword) {

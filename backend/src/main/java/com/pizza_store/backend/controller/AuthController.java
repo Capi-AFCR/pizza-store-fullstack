@@ -92,10 +92,8 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestBody ForgotPasswordRequest request) {
         try {
             LOGGER.info("Processing forgot password for: " + request.getEmail());
-            String token = userService.generateResetToken(request.getEmail());
-            // Mock email sending
-            LOGGER.info("Password reset token for " + request.getEmail() + ": " + token);
-            return ResponseEntity.ok("Password reset token generated (check logs)");
+            userService.generateResetToken(request.getEmail());
+            return ResponseEntity.ok("Password reset token sent to your email.");
         } catch (Exception e) {
             LOGGER.severe("Forgot password failed: " + e.getMessage());
             return ResponseEntity.status(400).body("Forgot password failed: " + e.getMessage());
