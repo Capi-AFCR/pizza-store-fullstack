@@ -42,12 +42,13 @@ public class AuthController {
             final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getUsername());
             final String accessToken = jwtUtil.generateToken(userDetails);
             final String refreshToken = jwtUtil.generateRefreshToken(request.getUsername());
+            final String email = userDetails.getUsername();
             String role = userDetails.getAuthorities().stream()
                     .map(auth -> auth.getAuthority())
                     .findFirst()
                     .orElse("");
             LOGGER.info("Login successful for: " + request.getUsername());
-            return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken, role));
+            return ResponseEntity.ok(new AuthResponse(accessToken, refreshToken, email, role));
         } catch (BadCredentialsException e) {
             LOGGER.severe("Login failed: " + e.getMessage());
             return ResponseEntity.status(401).body("Invalid credentials");
@@ -65,11 +66,12 @@ public class AuthController {
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
             String newAccessToken = jwtUtil.generateToken(userDetails);
             String newRefreshToken = jwtUtil.generateRefreshToken(username);
+            String email = userDetails.getUsername();
             String role = userDetails.getAuthorities().stream()
                     .map(auth -> auth.getAuthority())
                     .findFirst()
                     .orElse("");
-            return ResponseEntity.ok(new AuthResponse(newAccessToken, newRefreshToken, role));
+            return ResponseEntity.ok(new AuthResponse(newAccessToken, newRefreshToken, email, role));
         } catch (Exception e) {
             LOGGER.severe("Token refresh failed: " + e.getMessage());
             return ResponseEntity.status(401).body("Token refresh failed: " + e.getMessage());
@@ -230,11 +232,13 @@ class ResetPasswordRequest {
 class AuthResponse {
     private String accessToken;
     private String refreshToken;
+    private String email;
     private String role;
 
-    public AuthResponse(String accessToken, String refreshToken, String role) {
+    public AuthResponse(String accessToken, String refreshToken, String email, String role) {
         this.accessToken = accessToken;
         this.refreshToken = refreshToken;
+        this.email = email;
         this.role = role;
     }
 
@@ -252,6 +256,14 @@ class AuthResponse {
 
     public void setRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getRole() {

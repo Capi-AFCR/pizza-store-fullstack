@@ -3,7 +3,6 @@ package com.pizza_store.backend.controller;
 import com.pizza_store.backend.service.LoyaltyService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import com.pizza_store.backend.repository.UserRepository;
@@ -23,7 +22,6 @@ public class LoyaltyController {
     private UserRepository userRepository;
 
     @GetMapping("/points")
-    @PreAuthorize("hasRole('C')")
     public ResponseEntity<Integer> getPointsBalance() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -40,7 +38,6 @@ public class LoyaltyController {
     }
 
     @PostMapping("/redeem")
-    @PreAuthorize("hasRole('C')")
     public ResponseEntity<Double> redeemPoints(@RequestBody RedeemPointsRequest request) {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();

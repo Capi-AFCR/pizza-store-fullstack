@@ -36,6 +36,10 @@ const LoginForm: React.FC<LoginFormProps> = ({ setToken, setRefreshToken, setEma
       setRefreshToken(response.data.refreshToken);
       setEmail(response.data.email);
       setRole(response.data.role);
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('refreshToken', response.data.refreshToken);
+      localStorage.setItem('email', response.data.email);
+      localStorage.setItem('role', response.data.role);
       setError('');
       setLocalError('');
 

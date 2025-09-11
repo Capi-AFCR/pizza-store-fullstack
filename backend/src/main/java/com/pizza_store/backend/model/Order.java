@@ -32,10 +32,16 @@ public class Order {
     @NotNull(message = "Total price cannot be null")
     private Double totalPrice;
 
+    @Column(name = "scheduled_at")
+    private LocalDateTime scheduledAt;
+
     @Column(nullable = false)
     @NotNull(message = "Status cannot be null")
     @Enumerated(EnumType.STRING)
     private OrderStatus status;
+
+    @Column(name = "custom_pizza", nullable = false)
+    private boolean customPizza = false;
 
     @Column(nullable = false)
     @CreatedBy
@@ -97,12 +103,28 @@ public class Order {
         this.totalPrice = totalPrice;
     }
 
+    public LocalDateTime getScheduledAt() {
+        return scheduledAt;
+    }
+
+    public void setScheduledAt(LocalDateTime scheduledAt) {
+        this.scheduledAt = scheduledAt;
+    }
+
     public OrderStatus getStatus() {
         return status;
     }
 
     public void setStatus(OrderStatus status) {
         this.status = status;
+    }
+
+    public boolean isCustomPizza() {
+        return customPizza;
+    }
+
+    public void setCustomPizza(boolean customPizza) {
+        this.customPizza = customPizza;
     }
 
     public String getCreatedBy() {

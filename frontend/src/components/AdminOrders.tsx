@@ -77,7 +77,7 @@ const AdminOrders: React.FC = () => {
       }
       const config = { headers: { Authorization: `Bearer ${token}` } };
       const newStatus = selectedStatuses.get(orderId) as 'PE' | 'AP' | 'RE' | 'OW' | 'DN' | 'DY' | 'CA';
-      await axios.put(`/api/orders/${orderId}`, { status: newStatus }, config);
+      await axios.put(`/api/orders/${orderId}/status`, { status: newStatus }, config);
       setOrders(orders.map(order => order.id === orderId ? { ...order, status: newStatus } : order));
       setSelectedStatuses(prev => {
         const newMap = new Map(prev);

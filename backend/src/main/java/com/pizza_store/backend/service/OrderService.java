@@ -2,6 +2,7 @@ package com.pizza_store.backend.service;
 
 import com.pizza_store.backend.model.*;
 import com.pizza_store.backend.repository.OrderRepository;
+import com.pizza_store.backend.repository.OrderStatusHistoryRepository;
 import com.pizza_store.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -28,36 +30,55 @@ public class OrderService {
     private LoyaltyService loyaltyService;
 
     @Autowired
+    private IngredientService ingredientService;
+
+    @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
-    public Order createOrder(Long userId, List<OrderItem> items, Integer loyaltyPoints) {
-        double totalPrice = items.stream()
-                .mapToDouble(item -> item.getPrice() * item.getQuantity())
-                .sum();
-        if (loyaltyPoints > 0) {
-            double discount = loyaltyService.redeemPoints(Math.toIntExact(userId), loyaltyPoints);
-            totalPrice -= discount;
-            if (totalPrice < 0) totalPrice = 0;
-        }
-        String currentUser = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : "system";
-        Order order = new Order(userId, items, totalPrice, OrderStatus.PE);
+    @Autowired
+    private OrderStatusHistoryRepository orderStatusHistoryRepository;
+
+    private static final Map<String, List<String>> STATUS_TRANSITIONS = Map.of(
+            "PE", List.of("AP","CA"),
+            "AP", List.of("RE","CA"),
+            "RE", List.of("OW","DN"),
+            "OW", List.of("DY", "CA"),
+            "DN", List.of("DY", "CA"),
+            "DY", List.of(),
+            "CA", List.of()
+    );
+
+    private static final Map<String, List<String>> ROLE_PERMISSIONS = Map.of(
+            "ROLE_K", List.of("PE", "AP"),
+            "ROLE_D", List.of("RE", "OW"),
+            "ROLE_W", List.of("PE", "RE", "DN"),
+            "ROLE_A", List.of("PE", "AP", "RE", "OW", "DN"),
+            "ROLE_C", List.of("PE")
+    );
+
+    public Order createOrder(Order order) {
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
         order.setCreatedBy(currentUser);
         order.setModifiedBy(currentUser);
         order.setCreatedAt(LocalDateTime.now());
+        order.setModifiedAt(LocalDateTime.now());
+        if (order.getScheduledAt() != null && order.getScheduledAt().isBefore(LocalDateTime.now().plusHours(1))) {
+            throw new IllegalArgumentException("Scheduled time must be at least 1 hour in the future");
+        }
         Order savedOrder = orderRepository.save(order);
-        LOGGER.info("Order created: ID=" + savedOrder.getId() + ", status=PE");
 
         // Award loyalty points
         loyaltyService.awardPoints(Math.toIntExact(order.getUserId()), order.getTotalPrice());
+
+        OrderStatusHistory history = new OrderStatusHistory(savedOrder.getId(), OrderStatus.PE, currentUser);
+        orderStatusHistoryRepository.save(history);
 
         messagingTemplate.convertAndSend("/topic/orders/" + savedOrder.getId(),
                 new OrderStatusUpdate(savedOrder.getId(), OrderStatus.PE.name(), LocalDateTime.now()));
         return savedOrder;
     }
 
-    public List<Order> getUserOrders(Long userId) {
+    public List<Order> getClientOrders(Long userId) {
         return orderRepository.findByUserId(userId);
     }
 
@@ -84,59 +105,31 @@ public class OrderService {
     }
 
     public Order updateOrderStatus(Long id, OrderStatus newStatus) {
+        String currentUser = SecurityContextHolder.getContext().getAuthentication().getName();
+        String role = SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .map(auth -> auth.getAuthority())
+                .filter(auth -> auth.startsWith("ROLE_"))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No role found for user"));
+
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found: " + id));
+
         if (order.getStatus() == OrderStatus.DY || order.getStatus() == OrderStatus.CA) {
             throw new RuntimeException("Cannot update order status: order is already " +
                     (order.getStatus() == OrderStatus.DY ? "Delivered - Paid" : "Cancelled"));
         }
-        String currentUserEmail = SecurityContextHolder.getContext().getAuthentication() != null
-                ? SecurityContextHolder.getContext().getAuthentication().getName()
-                : "system";
-        Role currentUserRole = userRepository.findByEmail(currentUserEmail)
-                .map(User::getRole)
-                .orElseThrow(() -> new RuntimeException("User not found: " + currentUserEmail));
-        boolean isValidTransition = false;
-        switch (order.getStatus()) {
-            case PE:
-                if (newStatus == OrderStatus.CA && (currentUserRole == Role.A || currentUserRole == Role.W)) {
-                    isValidTransition = true;
-                } else if (newStatus == OrderStatus.AP && (currentUserRole == Role.A || currentUserRole == Role.K)) {
-                    isValidTransition = true;
-                }
-                break;
-            case AP:
-                if ((newStatus == OrderStatus.CA || newStatus == OrderStatus.RE) &&
-                        (currentUserRole == Role.A || currentUserRole == Role.K)) {
-                    isValidTransition = true;
-                }
-                break;
-            case RE:
-                if ((newStatus == OrderStatus.OW && (currentUserRole == Role.A || currentUserRole == Role.D)) ||
-                        (newStatus == OrderStatus.DN && (currentUserRole == Role.A || currentUserRole == Role.W))) {
-                    isValidTransition = true;
-                }
-                break;
-            case OW:
-                if ((newStatus == OrderStatus.DY || newStatus == OrderStatus.CA) &&
-                        (currentUserRole == Role.A || currentUserRole == Role.D)) {
-                    isValidTransition = true;
-                }
-                break;
-            case DN:
-                if ((newStatus == OrderStatus.DY || newStatus == OrderStatus.CA) &&
-                        (currentUserRole == Role.A || currentUserRole == Role.W)) {
-                    isValidTransition = true;
-                }
-                break;
-            default:
-                throw new RuntimeException("Invalid current status: " + order.getStatus());
+
+        if (!ROLE_PERMISSIONS.getOrDefault(role, List.of()).contains(order.getStatus().name())) {
+            throw new IllegalStateException("User with role " + role + " cannot update order from status " + order.getStatus().name());
         }
-        if (!isValidTransition) {
-            throw new RuntimeException("Invalid status transition from " + order.getStatus() + " to " + newStatus + " for role " + currentUserRole);
+
+        if (!STATUS_TRANSITIONS.getOrDefault(order.getStatus().name(), List.of()).contains(newStatus.name()) && !role.equals("ROLE_A")) {
+            throw new IllegalArgumentException("Invalid status transition from " + order.getStatus().name() + " to " + newStatus.name());
         }
+
         order.setStatus(newStatus);
-        order.setModifiedBy(currentUserEmail);
+        order.setModifiedBy(currentUser);
         order.setModifiedAt(LocalDateTime.now());
         Order updatedOrder = orderRepository.save(order);
         LOGGER.info("Order status updated: ID=" + id + ", status=" + newStatus);

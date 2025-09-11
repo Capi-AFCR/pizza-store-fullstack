@@ -1,224 +1,162 @@
 import React, { useState, useEffect } from 'react';
-import axios, { AxiosResponse } from 'axios';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { User, Product, CartItem } from '../types';
-import Cart from './Cart';
-import { useCart } from '../contexts/CartContext';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { Product, CartItem, User } from '../types';
 
-const OrderForm: React.FC = () => {
+interface OrderFormProps {
+  token: string;
+  cartItems: CartItem[];
+  setCartItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
+}
+
+const OrderForm: React.FC<OrderFormProps> = ({ token, cartItems, setCartItems }) => {
   const { t } = useTranslation();
-  const [clients, setClients] = useState<User[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [selectedClient, setSelectedClient] = useState<number | null>(null);
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [error, setError] = useState<string>('');
-  const { addToCart } = useCart();
   const navigate = useNavigate();
-  const role = localStorage.getItem('role') || '';
-  const token = localStorage.getItem('accessToken') || '';
-
-  const refreshAccessToken = async () => {
-    try {
-      const email = localStorage.getItem('email') || '';
-      const refreshToken = localStorage.getItem('refreshToken') || '';
-      const response: AxiosResponse<{ accessToken: string; refreshToken: string; role: string }> = await axios.post('/api/auth/refresh', {
-        email,
-        refreshToken
-      });
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
-      localStorage.setItem('role', response.data.role);
-      return response.data.accessToken;
-    } catch (err: any) {
-      setError(t('order_form.error_token'));
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('email');
-      localStorage.removeItem('role');
-      navigate('/login');
-      return null;
-    }
-  };
-
-  const fetchClients = async () => {
-    try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response: AxiosResponse<User[]> = await axios.get('/api/users/clients', config);
-      setClients(response.data);
-    } catch (err: any) {
-      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
-        const newToken = await refreshAccessToken();
-        if (newToken) {
-          const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const response: AxiosResponse<User[]> = await axios.get('/api/users/clients', config);
-          setClients(response.data);
-        }
-      } else {
-        setError(t('order_form.error_fetch') + ' ' + (err.response?.data || err.message));
-      }
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
-      setProducts(response.data);
-    } catch (err: any) {
-      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
-        const newToken = await refreshAccessToken();
-        if (newToken) {
-          const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const response: AxiosResponse<Product[]> = await axios.get('/api/products', config);
-          setProducts(response.data);
-        }
-      } else {
-        setError(t('order_form.error_fetch') + ' ' + (err.response?.data || err.message));
-      }
-    }
-  };
+  const [products, setProducts] = useState<Product[]>([]);
+  const [clients, setClients] = useState<User[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   useEffect(() => {
-    if (role === 'ROLE_A' || role === 'ROLE_W') {
-      fetchClients();
-      fetchProducts();
-    } else {
-      navigate('/login');
-    }
-  }, [role, token, navigate, fetchClients, fetchProducts]);
-
-  const handleAddToCart = (product: Product) => {
-      if (product.id !== undefined) {
-        addToCart({
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          description: product.description,
-          category: product.category,
-          isActive: product.isActive,
-          imageUrl: product.imageUrl,
-          createdBy: product.createdBy,
-          modifiedBy: product.modifiedBy,
-          createdAt: product.createdAt,
-          modifiedAt: product.modifiedAt,
-          quantity: 1
-        });
+    const fetchData = async () => {
+      try {
+        const [productsResponse, clientsResponse] = await Promise.all([
+          axios.get('/api/products', { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get('/api/users/clients', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        setProducts(productsResponse.data);
+        setClients(clientsResponse.data);
+        setError('');
+      } catch (err: any) {
+        setError(t('order_form.error_fetch_data') + ' ' + (err.response?.data || err.message));
       }
     };
+    fetchData();
+  }, [token, t]);
 
-  const handleSubmit = async (cartItems : CartItem[]) => {
-    if (!selectedClient) {
-      setError(t('order_form.error_client'));
-      return;
+  const addToCart = (product: Product) => {
+    const updatedCart = [...cartItems];
+    const existingItem = updatedCart.find(item => item.productId === product.id);
+    if (existingItem) {
+      existingItem.quantity += 1;
+    } else {
+      updatedCart.push({
+        productId: product.id!,
+        quantity: 1,
+        price: product.price,
+        name: product.name,
+        description: product.description,
+        category: product.category,
+        isActive: product.isActive
+      });
     }
-    if (cartItems.length === 0) {
-      setError(t('cart.empty'));
+    setCartItems(updatedCart);
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+  };
+
+  const removeFromCart = (productId: number) => {
+    const updatedCart = cartItems.filter(item => item.productId !== productId);
+    setCartItems(updatedCart);
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedClientId || cartItems.length === 0) {
+      setError(t('order_form.error_submit'));
       return;
     }
     try {
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const order = {
-        userId: selectedClient,
+      const payload = {
+        userId: parseInt(selectedClientId),
         items: cartItems.map(item => ({
-          productId: item.id,
+          productId: item.productId,
           quantity: item.quantity,
           price: item.price
         })),
-        totalPrice: cartItems.reduce((total, item) => total + item.quantity * item.price, 0),
-        status: 'PE',
-        createdBy: localStorage.getItem('email') || 'system',
-        modifiedBy: localStorage.getItem('email') || 'system'
+        loyaltyPoints: 0,
+        customPizza: cartItems.some(item => item.isCustomPizza)
       };
-      await axios.post('/api/orders', order, config);
+      await axios.post('/api/orders', payload, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setCartItems([]);
       localStorage.setItem('cart', JSON.stringify([]));
       setError('');
-      navigate('/orders');
+      navigate('/waiter');
     } catch (err: any) {
-      if ((err.response?.status === 401 || err.response?.status === 403) && localStorage.getItem('refreshToken') && localStorage.getItem('email')) {
-        const newToken = await refreshAccessToken();
-        if (newToken) {
-          const config = { headers: { Authorization: `Bearer ${newToken}` } };
-          const order = {
-            userId: selectedClient,
-            items: cartItems.map(item => ({
-              productId: item.id,
-              quantity: item.quantity,
-              price: item.price
-            })),
-            totalPrice: cartItems.reduce((total, item) => total + item.quantity * item.price, 0),
-            status: 'PE',
-            createdBy: localStorage.getItem('email') || 'system',
-            modifiedBy: localStorage.getItem('email') || 'system'
-          };
-          await axios.post('/api/orders', order, config);
-          setCartItems([]);
-          localStorage.setItem('cart', JSON.stringify([]));
-          setError('');
-          navigate('/orders');
-        }
-      } else {
-        setError(t('order_form.error_save') + ' ' + (err.response?.data || err.message));
-      }
+      setError(t('order_form.error_submit') + ' ' + (err.response?.data || err.message));
     }
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <h2 className="text-3xl font-bold mb-6 text-gray-800">{t('order_form.title')}</h2>
-      {error && <p className="text-red-500 mb-4 font-semibold">{error}</p>}
-      {(role !== 'ROLE_A' && role !== 'ROLE_W') && (
-        <p className="text-red-500 mb-4 font-semibold">{t('order_form.error_access')}</p>
-      )}
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">{t('order_form.select_client')}</label>
-          <select
-            value={selectedClient || ''}
-            onChange={(e) => setSelectedClient(Number(e.target.value) || null)}
-            className="border p-2 rounded w-full focus:ring-2 focus:ring-blue-500"
+    <div className="container mx-auto px-6 py-8">
+      <h2 className="text-4xl font-semibold text-gray-800 mb-6 animate-fade-in">{t('order_form.title')}</h2>
+      {error && <p className="text-red-500 mb-6 font-medium bg-red-50 p-4 rounded-lg animate-fade-in">{error}</p>}
+      <div className="mb-8">
+        <label className="block text-sm font-medium text-gray-700 mb-2">{t('order_form.select_client')}</label>
+        <select
+          value={selectedClientId}
+          onChange={(e) => setSelectedClientId(e.target.value)}
+          className="border border-gray-300 p-3 rounded-lg w-full focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+        >
+          <option value="">{t('order_form.select_client_placeholder')}</option>
+          {clients.map(client => (
+            <option key={client.id} value={client.id}>{client.name} ({client.email})</option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {products.map(product => (
+          <div
+            key={product.id}
+            className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 animate-fade-in"
           >
-            <option value="">{t('order_form.select_client')}</option>
-            {clients.map(client => (
-              <option key={client.id} value={client.id}>{client.name}</option>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">{product.name}</h3>
+            <p className="text-gray-600 mb-3 line-clamp-2">{product.description}</p>
+            <p className="text-gray-700 font-medium mb-4">
+              {t('order_form.price')}: <span className="text-blue-600">${product.price.toFixed(2)}</span>
+            </p>
+            <button
+              onClick={() => addToCart(product)}
+              className="bg-blue-600 text-white p-3 rounded-lg w-full hover:bg-blue-700 transition-colors duration-200"
+            >
+              {t('order_form.add_to_cart')}
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="mb-8">
+        <h3 className="text-2xl font-semibold text-gray-800 mb-4">{t('order_form.cart')}</h3>
+        {cartItems.length === 0 ? (
+          <p className="text-gray-600 text-lg">{t('order_form.cart_empty')}</p>
+        ) : (
+          <ul className="divide-y divide-gray-200">
+            {cartItems.map(item => (
+              <li key={item.productId} className="py-3 flex justify-between items-center">
+                <div>
+                  <p className="text-gray-700 font-medium">{item.name || `Product ID: ${item.productId}`}</p>
+                  <p className="text-gray-600 text-sm">{t('order_form.quantity')}: {item.quantity}</p>
+                  <p className="text-gray-600 text-sm">{t('order_form.unit_price')}: ${item.price.toFixed(2)}</p>
+                </div>
+                <button
+                  onClick={() => removeFromCart(item.productId)}
+                  className="bg-red-500 text-white p-2 rounded hover:bg-red-600 transition-colors duration-200"
+                >
+                  {t('order_form.remove')}
+                </button>
+              </li>
             ))}
-          </select>
-          {clients.length === 0 && <p className="text-gray-600 mt-2">{t('order_form.no_clients')}</p>}
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold mb-2">{t('order_form.products')}</h3>
-          {products.length === 0 ? (
-            <p className="text-gray-600">{t('order_form.no_products')}</p>
-          ) : (
-            <ul className="divide-y divide-gray-200">
-              {products.map(product => (
-                <li key={product.id} className="py-2 flex justify-between items-center">
-                  <div>
-                    <p className="text-gray-700 font-semibold">{product.name}</p>
-                    <p className="text-gray-600">{t('order_form.price')}: ${product.price.toFixed(2)}</p>
-                  </div>
-                  <button
-                    onClick={() => handleAddToCart(product)}
-                    className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    {t('order_form.add_to_cart')}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+          </ul>
+        )}
       </div>
-      <div className="mt-6">
-        <Cart
-          onCheckout={(cartItems) => handleSubmit(cartItems)}
-          disabled={(role === 'ROLE_W' || role === 'ROLE_A') && !selectedClient}
-          token={token}
-          cartItems={cartItems} 
-          setCartItems={setCartItems}
-        />
-      </div>
+      <button
+        onClick={handleSubmit}
+        disabled={cartItems.length === 0 || !selectedClientId}
+        className="bg-green-600 text-white p-3 rounded-lg w-full hover:bg-green-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
+      >
+        {t('order_form.submit')}
+      </button>
     </div>
   );
 };

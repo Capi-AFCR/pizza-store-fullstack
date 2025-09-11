@@ -1,7 +1,8 @@
 CREATE TABLE order_items (
   id SERIAL PRIMARY KEY,
   order_id INTEGER NOT NULL REFERENCES orders(id),
-  product_id INTEGER NOT NULL REFERENCES products(id),
+  product_id INTEGER,
+  ingredients INTEGER[],
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   price DECIMAL(10, 2) NOT NULL
 );

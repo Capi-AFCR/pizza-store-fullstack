@@ -3,6 +3,7 @@ package com.pizza_store.backend.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -45,13 +46,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/products").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/products/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/loyalty/**").hasAuthority("ROLE_C") // Restrict to ROLE_C
-                        .requestMatchers("/api/orders/user").authenticated()
+                        .requestMatchers("/api/ingredients/category/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_W")
+                        .requestMatchers("/api/orders").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_W")
+                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
+                        .requestMatchers("/api/orders/client").hasAuthority("ROLE_C")
                         .requestMatchers("/api/orders/kitchen").hasAuthority("ROLE_K")
                         .requestMatchers("/api/orders/delivery").hasAuthority("ROLE_D")
                         .requestMatchers("/api/orders/waiter").hasAuthority("ROLE_W")
-                        .requestMatchers("/api/orders").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
-                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/orders/analytics").hasAuthority("ROLE_A")
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

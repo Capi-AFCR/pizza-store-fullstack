@@ -4,20 +4,23 @@ import com.pizza_store.backend.model.Order;
 import com.pizza_store.backend.model.OrderItem;
 import com.pizza_store.backend.model.OrderStatus;
 import com.pizza_store.backend.model.OrderStatusHistory;
-import com.pizza_store.backend.model.Product;
 import com.pizza_store.backend.repository.OrderStatusHistoryRepository;
 import com.pizza_store.backend.repository.ProductRepository;
 import com.pizza_store.backend.repository.UserRepository;
+import com.pizza_store.backend.service.IngredientService;
+import com.pizza_store.backend.service.LoyaltyService;
 import com.pizza_store.backend.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -29,6 +32,12 @@ public class OrderController {
     private OrderService orderService;
 
     @Autowired
+    private IngredientService ingredientService;
+
+    @Autowired
+    private LoyaltyService loyaltyService;
+
+    @Autowired
     private ProductRepository productRepository;
 
     @Autowired
@@ -37,46 +46,60 @@ public class OrderController {
     @Autowired
     private OrderStatusHistoryRepository orderStatusHistoryRepository;
 
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest) {
         try {
             LOGGER.info("Creating order for user ID: " + orderRequest.getUserId());
-            String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
-            Long effectiveUserId = orderRequest.getUserId();
-            if (effectiveUserId == null) {
-                effectiveUserId = userRepository.findByEmail(currentUserEmail)
-                        .map(user -> user.getId())
-                        .orElseThrow(() -> new RuntimeException("User not found: " + currentUserEmail));
+            Order order = new Order();
+            AtomicReference<Boolean> customPizza = new AtomicReference<>(false);
+            order.setUserId((long) orderRequest.getUserId());
+            List<OrderItem> orderItems = orderRequest.getItems();
+            orderItems.forEach(orderItem -> {
+                if (orderItem.getIngredients() != null && !orderItem.getIngredients().isEmpty()){
+                    orderItem.setProductId(null);
+                    customPizza.set(true);
+                }
+            });
+            order.setItems(orderItems);
+            double totalPrice = orderRequest.getItems().stream()
+                    .mapToDouble(item -> item.getQuantity() * item.getPrice())
+                    .sum();
+            if (orderRequest.getLoyaltyPoints() > 0) {
+                String email = SecurityContextHolder.getContext().getAuthentication().getName();
+                Integer userId = Math.toIntExact(userRepository.findByEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found: " + email))
+                        .getId());
+                double discount = loyaltyService.redeemPoints(userId, orderRequest.getLoyaltyPoints());
+                totalPrice -= discount;
+                if (totalPrice < 0) totalPrice = 0;
             }
-            List<OrderItem> orderItems = orderRequest.getItems().stream()
-                    .map(item -> {
-                        Product product = productRepository.findById(item.getProductId())
-                                .orElseThrow(() -> new RuntimeException("Product not found: " + item.getProductId()));
-                        return new OrderItem(item.getProductId(), item.getQuantity(), product.getPrice());
-                    })
-                    .collect(Collectors.toList());
-            Order order = orderService.createOrder(effectiveUserId, orderItems, orderRequest.getLoyaltyPoints());
-            OrderStatusHistory history = new OrderStatusHistory();
-            history.setOrderId(order.getId());
-            history.setStatus(order.getStatus().name());
-            history.setUpdatedAt(LocalDateTime.now());
-            history.setUpdatedBy(currentUserEmail);
-            orderStatusHistoryRepository.save(history);
-            return ResponseEntity.status(201).body(order);
+            order.setTotalPrice(totalPrice);
+            order.setStatus(OrderStatus.PE);
+            if (orderRequest.getScheduledAt() != null) {
+                order.setScheduledAt(LocalDateTime.parse(orderRequest.getScheduledAt()));
+            }
+            order.setCustomPizza(customPizza.get());
+            Order createdOrder = orderService.createOrder(order);
+            return ResponseEntity.status(201).body(createdOrder);
         } catch (Exception e) {
             LOGGER.severe("Failed to create order: " + e.getMessage());
             return ResponseEntity.status(400).body("Failed to create order: " + e.getMessage());
         }
     }
 
-    @GetMapping("/user")
-    public ResponseEntity<List<Order>> getUserOrders() {
+    @GetMapping("/client")
+    public ResponseEntity<List<Order>> getClientOrders() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        LOGGER.info("Fetching orders for user: " + email);
+        LOGGER.info("Fetching orders for client: " + email);
         Long userId = userRepository.findByEmail(email)
                 .map(user -> user.getId())
                 .orElseThrow(() -> new RuntimeException("User not found: " + email));
-        return ResponseEntity.ok(orderService.getUserOrders(userId));
+        List<Order> ordersResponse = orderService.getClientOrders(userId);
+        LOGGER.info("Fetched orders: " + ordersResponse);
+        return ResponseEntity.ok(ordersResponse);
     }
 
     @GetMapping("/kitchen")
@@ -103,7 +126,7 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id}/status")
     public ResponseEntity<?> updateOrderStatus(@PathVariable Long id, @RequestBody UpdateOrderStatusRequest request) {
         try {
             String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -111,7 +134,7 @@ public class OrderController {
             Order order = orderService.updateOrderStatus(id, request.getStatus());
             OrderStatusHistory history = new OrderStatusHistory();
             history.setOrderId(id);
-            history.setStatus(request.getStatus().name());
+            history.setStatus(request.getStatus());
             history.setUpdatedAt(LocalDateTime.now());
             history.setUpdatedBy(currentUserEmail);
             orderStatusHistoryRepository.save(history);
@@ -124,50 +147,19 @@ public class OrderController {
 }
 
 class OrderRequest {
-    private Long userId;
-    private List<OrderItemRequest> items;
+    private int userId;
+    private List<OrderItem> items;
     private int loyaltyPoints;
+    private String scheduledAt;
 
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public List<OrderItemRequest> getItems() {
-        return items;
-    }
-
-    public void setItems(List<OrderItemRequest> items) {
-        this.items = items;
-    }
-
+    public int getUserId() { return userId; }
+    public void setUserId(int userId) { this.userId = userId; }
+    public List<OrderItem> getItems() { return items; }
+    public void setItems(List<OrderItem> items) { this.items = items; }
     public int getLoyaltyPoints() { return loyaltyPoints; }
-
     public void setLoyaltyPoints(int loyaltyPoints) { this.loyaltyPoints = loyaltyPoints; }
-}
-
-class OrderItemRequest {
-    private Long productId;
-    private Integer quantity;
-
-    public Long getProductId() {
-        return productId;
-    }
-
-    public void setProductId(Long productId) {
-        this.productId = productId;
-    }
-
-    public Integer getQuantity() {
-        return quantity;
-    }
-
-    public void setQuantity(Integer quantity) {
-        this.quantity = quantity;
-    }
+    public String getScheduledAt() { return scheduledAt; }
+    public void setScheduledAt(String scheduledAt) { this.scheduledAt = scheduledAt; }
 }
 
 class UpdateOrderStatusRequest {
