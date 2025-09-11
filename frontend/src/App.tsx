@@ -190,12 +190,12 @@ const App: React.FC = () => {
             <Route path="/admin/orders" element={token && role === 'ROLE_A' ? <AdminOrders /> : <Navigate to="/login" />} />
             <Route path="/admin/products" element={token && role === 'ROLE_A' ? <ProductManagement /> : <Navigate to="/login" />} />
             <Route path="/client" element={token && role === 'ROLE_C' ? <ClientDashboard token={token} email={email} cartItems={cartItems} setCartItems={setCartItems} setToken={setToken} setRole={setRole} setError={setError} /> : <Navigate to="/login" />} />
-            <Route path="/kitchen" element={token && role === 'ROLE_K' ? <KitchenDashboard /> : <Navigate to="/login" />} />
-            <Route path="/delivery" element={token && role === 'ROLE_D' ? <DeliveryDashboard /> : <Navigate to="/login" />} />
-            <Route path="/waiter" element={token && role === 'ROLE_W' ? <WaiterDashboard /> : <Navigate to="/login" />} />
+            <Route path="/kitchen" element={token && role === 'ROLE_K' ? <KitchenDashboard token={token} /> : <Navigate to="/login" />} />
+            <Route path="/delivery" element={token && role === 'ROLE_D' ? <DeliveryDashboard token={token} /> : <Navigate to="/login" />} />
+            <Route path="/waiter" element={token && role === 'ROLE_W' ? <WaiterDashboard token={token} /> : <Navigate to="/login" />} />
             <Route path="/cart" element={token && role === 'ROLE_C' ? <Cart onCheckout={handleCheckout} token={token} cartItems={cartItems} setCartItems={setCartItems} /> : <Navigate to="/login" />} />
             <Route path="/custom-pizza" element={<CustomPizzaBuilder token={token} addToCart={addToCart} />} />
-            <Route path="/orders/new" element={token && (role === 'ROLE_A' || role === 'ROLE_W') ? <OrderForm /> : <Navigate to="/login" />} />
+            <Route path="/orders/new" element={role === 'ROLE_A' || role === 'ROLE_W' ? <OrderForm token={token} cartItems={cartItems} setCartItems={setCartItems} /> : <Navigate to="/login" />} />
             <Route path="/orders/client" element={token && role === 'ROLE_C' ? <OrderHistory /> : <Navigate to="/login" />} />
           </Routes>
         </div>

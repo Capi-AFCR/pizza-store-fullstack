@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Client, Stomp } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useTranslation } from 'react-i18next';
-import { Product, CartItem, Order } from '../types';
+import { Product, CartItem, Order, OrderStatusHistory } from '../types';
 import Cart from './Cart';
 
 interface ClientDashboardProps {
@@ -29,6 +29,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ token, email, cartIte
   const [stompClient, setStompClient] = useState<Client | null>(null);
   const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
   const role = localStorage.getItem('role') as string || '';
 
   const refreshAccessToken = async (): Promise<string> => {
@@ -111,6 +112,21 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ token, email, cartIte
         setLocalError(t('client_dashboard.error') + ' ' + (err.response?.data || err.message));
         navigate('/login');
       }
+    }
+  };
+
+  const fetchOrderDetails = async (orderId: number, currentToken: string) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${currentToken}` } };
+      const response: AxiosResponse<{ order: Order; statusHistory: OrderStatusHistory[] }> = await axios.get(`/api/orders/${orderId}/details`, config);
+      setOrders(prevOrders =>
+        prevOrders.map(order =>
+          order.id === orderId ? { ...order, ...response.data.order, statusHistory: response.data.statusHistory } : order
+        )
+      );
+      setLocalError('');    
+    } catch (err: any) {
+      setLocalError(t('client_dashboard.error_details') + ' ' + (err.response?.data?.error || err.message));
     }
   };
 
@@ -264,6 +280,15 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ token, email, cartIte
     localStorage.setItem('cart', JSON.stringify(updatedCart));
   };
 
+  const toggleOrderDetails = (orderId: number) => {
+    if (expandedOrder === orderId) {
+      setExpandedOrder(null);
+    } else {
+      setExpandedOrder(orderId);
+      fetchOrderDetails(orderId, token);
+    }
+  };
+
   const filteredProducts = products
     .filter(product => product.id !== undefined && (category === 'all' || product.category === category))
     .sort((a, b) => {
@@ -363,21 +388,58 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ token, email, cartIte
             <ul className="divide-y divide-gray-200">
               {orders.map(order => (
                 <li key={order.id} className="py-4 animate-fade-in">
-                  <p className="text-gray-700 font-medium">
-                    {t('client_dashboard.order_id')}: <span className="text-blue-600">{order.id}</span>
-                  </p>
-                  <p className="text-gray-600">
-                    {t('client_dashboard.order_status')}: <span className="text-blue-600">{t(`client_dashboard.status_${order.status.toLowerCase()}`)}</span>
-                  </p>
-                  {order.scheduledAt && (
-                    <p className="text-gray-600">
-                      {t('client_dashboard.scheduled_at')}: <span className="text-blue-600">{new Date(order.scheduledAt).toLocaleString()}</span>
-                    </p>
-                  )}
-                  {order.customPizza && (
-                    <p className="text-gray-600">
-                      {t('client_dashboard.custom_pizza')}: <span className="text-blue-600">{t('client_dashboard.custom_pizza_yes')}</span>
-                    </p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-gray-700 font-medium">
+                        {t('client_dashboard.order_id')}: <span className="text-blue-600">{order.id}</span>
+                      </p>
+                      <p className="text-gray-600">
+                        {t('client_dashboard.order_status')}: <span className="text-blue-600">{t(`client_dashboard.status_${order.status.toLowerCase()}`)}</span>
+                      </p>
+                      {order.scheduledAt && (
+                        <p className="text-gray-600">
+                          {t('client_dashboard.scheduled_at')}: <span className="text-blue-600">{new Date(order.scheduledAt).toLocaleString()}</span>
+                        </p>
+                      )}
+                      {order.customPizza && (
+                        <p className="text-gray-600">
+                          {t('client_dashboard.custom_pizza')}: <span className="text-blue-600">{t('client_dashboard.custom_pizza_yes')}</span>
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => toggleOrderDetails(order.id!)}
+                      className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                    >
+                      {expandedOrder === order.id ? t('client_dashboard.hide_details') : t('client_dashboard.show_details')}
+                    </button>
+                  </div>
+                  {expandedOrder === order.id && order.statusHistory && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="text-lg font-semibold text-gray-800 mb-2">{t('client_dashboard.order_items')}</h4>
+                      <ul className="list-disc pl-5 mb-4">
+                        {order.items.map((item, index) => (
+                          <li key={index} className="text-gray-600">
+                            {order.customPizza && item.productId === 0 ? 'Custom Pizza' : `Product ID ${item.productId}`}: {item.quantity} x ${item.price.toFixed(2)}
+                            {order.customPizza && item.productId === 0 && (
+                              <ul className="list-circle pl-5">
+                                {cartItems.find(cartItem => cartItem.productId === 0 && cartItem.isCustomPizza)?.ingredients?.map(ingredient => (
+                                  <li key={ingredient.id}>{ingredient.name} (${ingredient.price.toFixed(2)})</li>
+                                ))}
+                              </ul>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                      <h4 className="text-lg font-semibold text-gray-800 mb-2">{t('client_dashboard.status_history')}</h4>
+                      <ul className="list-disc pl-5">
+                        {order.statusHistory.map(history => (
+                          <li key={history.id} className="text-gray-600">
+                            {t(`client_dashboard.status_${history.status.toLowerCase()}`)} - {new Date(history.updatedAt).toLocaleString()} by {history.updatedBy}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </li>
               ))}

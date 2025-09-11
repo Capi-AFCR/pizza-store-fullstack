@@ -12,6 +12,8 @@ import com.pizza_store.backend.service.LoyaltyService;
 import com.pizza_store.backend.service.OrderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -43,6 +45,9 @@ public class OrderController {
 
     @Autowired
     private OrderStatusHistoryRepository orderStatusHistoryRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
     @PostMapping
     public ResponseEntity<?> createOrder(@RequestBody OrderRequest orderRequest) {
@@ -121,7 +126,7 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getAllOrders());
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id}/status")
     public ResponseEntity<?> updateOrderStatus(@PathVariable Long id, @RequestBody UpdateOrderStatusRequest request) {
         try {
             String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -129,7 +134,7 @@ public class OrderController {
             Order order = orderService.updateOrderStatus(id, request.getStatus());
             OrderStatusHistory history = new OrderStatusHistory();
             history.setOrderId(id);
-            history.setStatus(request.getStatus().name());
+            history.setStatus(request.getStatus());
             history.setUpdatedAt(LocalDateTime.now());
             history.setUpdatedBy(currentUserEmail);
             orderStatusHistoryRepository.save(history);

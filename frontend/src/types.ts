@@ -74,6 +74,7 @@ export interface Order {
   modifiedBy?: string;
   createdAt: string;
   modifiedAt?: string;
+  statusHistory?: OrderStatusHistory[];
 }
 
 export interface OrderStatusUpdate {
@@ -87,6 +88,14 @@ export interface Translation {
   key: string;
   language: string;
   value: string;
+}
+
+export interface OrderStatusHistory {
+  id: number;
+  orderId: number;
+  status: string;
+  updatedBy: string;
+  updatedAt: string;
 }
 
 export type { Role };

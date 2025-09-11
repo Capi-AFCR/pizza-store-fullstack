@@ -48,7 +48,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/loyalty/**").hasAuthority("ROLE_C") // Restrict to ROLE_C
                         .requestMatchers("/api/ingredients/category/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_W")
                         .requestMatchers("/api/orders").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_W")
-                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_W")
+                        .requestMatchers("/api/orders/**").hasAnyAuthority("ROLE_A", "ROLE_C", "ROLE_K", "ROLE_D", "ROLE_W")
                         .requestMatchers("/api/orders/client").hasAuthority("ROLE_C")
                         .requestMatchers("/api/orders/kitchen").hasAuthority("ROLE_K")
                         .requestMatchers("/api/orders/delivery").hasAuthority("ROLE_D")
